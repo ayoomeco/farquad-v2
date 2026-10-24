@@ -1,0 +1,610 @@
+# Genie Jutsu OS: runtime configuration.
+# Model names, engine plugins and prices live HERE, not in code, so models can be
+# upgraded by editing this file (or adding a plugin module) without rebuilding the app.
+# Never put secrets in this file. Secrets come from environment variables only.
+
+[app]
+name = "Genie Jutsu OS"
+version = "0.3.0"
+
+[llm]
+provider = "ollama"
+url = "http://127.0.0.1:11434"      # env OLLAMA_URL overrides
+model = "qwen3.5:4b"                # director brain (final sweep Oct 7: tool-use 79.9 TAU2, multimodal). env OLLAMA_MODEL overrides
+fallback_models = ["llama3.2:3b"]   # used automatically when the primary is not pulled in Ollama
+temperature = 0.45
+timeout_s = 180
+num_ctx = 2048
+keep_alive = "30m"                  # keep the model loaded between turns
+chat_max_tokens = 250               # Director replies stay short
+plan_max_tokens = 220
+warmup = true                       # preload model + system prompt on server start (env JUTSU_WARMUP=0 disables)
+
+[queue]
+max_attempts = 3
+retry_backoff_s = 2.0
+poll_interval_s = 0.5
+worker_enabled = true               # env JUTSU_WORKER=0 disables the background worker
+
+[billing]
+# Master kill-switch for any paid/cloud GPU work. Even with the owner's per-job approval,
+# a billable engine refuses to go live unless this is true AND the engine is in "live" mode.
+allow_billable_dispatch = false
+
+[store]
+# "sqlite" (default, local, authoritative queue). Supabase is an optional MIRROR of job state,
+# enabled only when JUTSU_SUPABASE_URL and JUTSU_SUPABASE_KEY are present in the environment.
+supabase_table = "genie_jobs"
+
+# ---------------------------------------------------------------- engines
+# module = "python.module:ClassName"  (plugin interface: app/engines/base.py)
+# capabilities: operation types the engine can execute.
+
+[engines.ffmpeg_local]
+enabled = true
+module = "app.engines.ffmpeg_local:FFmpegLocalEngine"
+label = "FFmpeg (box CPU)"
+billable = false
+capabilities = ["trim", "concat", "grade", "caption", "proxy", "audio_mux", "export", "speed", "crop", "scale", "scene_split", "audio_remux"]
+hardware = "box CPU (8 vCPU)"
+
+[engines.mock_gpu]
+enabled = true
+module = "app.engines.mock_gpu:MockGPUEngine"
+label = "Mock GPU (test double, no real model)"
+billable = false
+test_only = true
+capabilities = ["recast", "transform", "remove", "insert", "retexture", "environment"]
+
+[engines.salad_vace14b]
+enabled = true
+module = "app.engines.salad_comfy:SaladComfyVaceEngine"
+label = "Wan 2.1 VACE 14B fp8 / ComfyUI on Salad RTX 5090"
+billable = true
+mode = "dry_run"                    # "dry_run" builds + validates workflow JSON only. "live" is NOT implemented in this build.
+capabilities = ["recast", "transform", "retexture", "environment"]
+features = ["character_lora", "control_video_motion_lock", "single_reference_image"]
+supports_lora = true
+priority = 10                       # lower = preferred. Proven in the Oct 6 2026 Character eval.
+verified = true
+hardware = "Salad Cloud RTX 5090 32GB (org your-salad-org / project default)"
+salad_org = "your-salad-org"
+salad_project = "default"
+# Model files (as proven in the Oct 6 2026 Character eval). Swap these to upgrade.
+diffusion_model = "wan2.1_vace_14B_fp8e4m3fn.safetensors"
+diffusion_dtype = "fp8_e4m3fn"
+text_encoder = "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+vae = "wan_2.1_vae.safetensors"
+hf_repo = "Comfy-Org/Wan_2.1_ComfyUI_repackaged"
+# Recipe defaults (v3f)
+width = 640
+height = 640
+frames = 49
+fps = 16
+steps = 20
+cfg = 6.0
+sampler = "uni_pc"
+scheduler = "simple"
+shift = 8.0
+control_strength = 0.95
+seed = 42
+# Cost model (ESTIMATE ONLY; verify current price in the Salad portal before approving)
+price_per_hour_usd = 0.50           # Salad RTX 5090 (32 GB) HIGH priority list price, verified Oct 7 2026 via Salad gpu-classes API + salad.com/pricing (vCPU/RAM included; billed per second while running; boot/pull free). medium 0.417 / low 0.333 / batch 0.25
+render_seconds_per_49f = 355        # measured: 350-380s per 640x640x49f job (Oct 6 eval)
+boot_overhead_seconds = 1200        # measured: ~20 min image pull + model download + fp8 convert
+
+[engines.minimax_h3]
+enabled = true
+module = "app.engines.minimax_h3:MiniMaxH3Engine"
+label = "MiniMax H3 (open weights) / ComfyUI on Salad RTX 5090 - UNVERIFIED"
+billable = true
+mode = "dry_run"                    # package builder only; no weights downloaded, no Salad calls
+verified = false                    # nothing below has been tested by us yet
+priority = 50                       # routed only when explicitly requested, or when the VACE engine can't take the op
+capabilities = ["recast", "transform", "retexture", "environment", "insert"]
+features = ["reference_character_consistency", "motion_reference_video", "video_editing", "native_stereo_audio", "audio_reference"]
+supports_lora = false               # Wan LoRAs (e.g. Character step 2500) do NOT apply to H3; identity comes from reference images
+hardware = "Salad Cloud RTX 5090 32GB, single GPU, ComfyUI repack (ref2va pruned int8 21 GB + nvfp4 TE 15.7 GB, loaded sequentially: should fit, NOT test-run)"
+salad_org = "your-salad-org"
+salad_project = "default"
+hf_repo = "MiniMaxAI/MiniMax-H3"
+weights_source = "HF Comfy-Org/MiniMax-H3 (checked Oct 7 2026): diffusion_models/ + text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors (15.69 GB) + vae/minimax_h3_video_vae_int8_convrot.safetensors (2.81 GB) + vae/minimax_h3_audio_vae_fp32.safetensors (0.61 GB) + loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors (1.96 GB, optional)"
+license = "MiniMax H3 Community License (Aug 2 2026). US use needs a SEPARATE written authorization from MiniMax: get your own and record it in the license_* fields. The original author's authorization does NOT transfer to you."
+license_blocked = false             # unblocked by the Oct 7 2026 authorization
+license_authorized = true
+license_holder = "<your name or company>"
+license_date = "2026-10-07"
+license_proof = "licenses/<your authorization file>"
+license_email = "<where your authorization came from>"
+comfyui_min_version = "0.30.0"
+templates = ["T2V", "I2V", "R2V"]   # ComfyUI native templates, verified to exist (ComfyUI >= 0.30.0; our Salad image is comfy 0.7.0, so it would need an upgrade)
+checkpoint_fl2va = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"    # 20.97 GB (Comfy template default). also: pruned_fp8_scaled 20.96 GB, pruned_w6a8 15.98 GB, pruned_bf16 40.23 GB
+checkpoint_ref2va = "minimax_h3_ref2va_pruned_int8_convrot.safetensors"  # 20.97 GB (Comfy R2V template default)
+official_ui_template = "config/workflows/minimax_h3_r2v.official-ui-template.json"  # Comfy-Org/workflow_templates video_minimax_h3_r2v.json (UI format; res_multistep/simple, 20 steps, shift 12 baked into model)
+workflow_template = "config/workflows/minimax_h3_r2v.UNVERIFIED.json"
+max_ref_images = 9
+max_ref_videos = 3
+max_ref_audios = 3
+height = 768
+fps = 24
+max_seconds = 15
+default_seconds = 5
+min_seconds = 5                     # H3 output is 5-15 s (frames snap to 17k+5 at 24 fps, e.g. 124 frames); video refs must be 2-15 s
+# Cost model (ESTIMATE ONLY, no measured H3 timings yet)
+price_per_hour_usd = 0.50           # Salad RTX 5090 HIGH priority list price (verified Oct 7 2026)
+render_seconds_per_output_second = 120   # GUESS; replace after first measured run
+boot_overhead_seconds = 1500        # GUESS: image pull + weight download
+
+# Candidate engines from the runbook. Listed so the registry can report them, but NOT
+# verified/installed (weights, license, VRAM not checked). Kept disabled.
+[engines.wan22_animate]
+enabled = false
+module = ""
+label = "Wan 2.2 Animate (people recast) - unverified"
+billable = true
+capabilities = ["recast"]
+note = "Needs license/weights/VRAM verification before enabling."
+
+[engines.ltx_inpaint]
+enabled = false
+module = ""
+label = "LTX-Video inpainting (masked edits) - unverified"
+billable = true
+capabilities = ["remove", "insert"]
+note = "Needs verification."
+
+[engines.lucy_edit]
+enabled = false
+module = ""
+label = "Lucy Edit (general edits) - unverified"
+billable = true
+capabilities = ["transform", "retexture"]
+note = "Check license permits use before enabling."
+
+# ================================================================ GENJUTSU (open Higgsfield Genjutsu clone)
+# Engines below are routed by app/genjutsu/router.py from a ShotSpec (mode: motion_transfer / character_swap /
+# object_swap / restyle / upscale). They have NO legacy `capabilities`, so the old Director pipeline never picks them.
+# All are billable dry_run package builders until Phase 1 measures them; nothing here dispatches a GPU.
+[genjutsu]
+default_provider = "runpod_pod"
+default_gpu = "5090"
+
+[genjutsu.router]
+tie_margin = 0.05                    # LLM tiebreak only when the top two are within this score
+
+[genjutsu.h3]
+draft_accel = "turbo4"               # lightx2v Ref2V Turbo 4-step (Phase-1 review); pdd4 via the PDD-Acc pack is the A/B
+final_accel = "base20"               # flips to the L0-L5 ladder winner (pdd8 / turbo8 / ...) if it passes QC
+draft_vae = "light"                  # LynnReal light decoder
+final_vae = "standard"               # "x2" = X2 Detail VAE (2x decode) once Phase 1 checks it
+veda = false                         # Veda sparse attention toggle (5090 / PRO 6000 only; 3x faster/step in Phase 1)
+vsa = false                          # Ref2VA VSA learned sparse gate (experimental; forces the int8 trunk)
+motion_ref_short_edge_draft = 384    # Ref2VA motion reference resample (ShotSpec.motion_ref_short_edge overrides)
+motion_ref_short_edge_final = 544
+prompt_format = "context_ir"         # H3 Context-IR sections (subject_definitions ... non_diegetic_music); "plain" = old one-liner
+
+[engines.genjutsu_h3_ref2va]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "MiniMax H3 Ref2VA (motion transfer; PDD/HyperFlow accel)"
+recipe = "h3_ref2va"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 20
+genjutsu_modes = ["motion_transfer", "character_swap", "restyle"]
+subjects = ["any"]
+mode_scores = { motion_transfer = 0.90, character_swap = 0.55, restyle = 0.60 }
+identity = 0.80
+motion = 0.80
+speed = 0.75                         # PDD 4-step draft
+max_native_seconds = 15
+multi_subject = true
+native_audio = true
+style_image_ref = true
+restyle_strengths = ["textured", "flat"]
+fallback = "genjutsu_scail2"
+est_gpu_seconds = { draft = 150, final = 520 }   # per 5 s @ 5090, ESTIMATE (research: 15 s 768p 20-step 518 s); Phase 1 replaces
+
+[engines.genjutsu_viggle]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "Viggle-Animate (H3 33B fine-tune, person swap from 1 still / repainted frame)"
+recipe = "viggle_animate"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 10
+genjutsu_modes = ["character_swap"]
+subjects = ["human", "creature"]
+mode_scores = { character_swap = 0.92 }
+identity = 0.80
+motion = 0.92
+speed = 0.95                         # DMD 3 forward passes, no text encoder
+max_native_seconds = 15
+multi_subject = false
+in_place_replacement = true
+weak_reentry = true                  # identity drifts when the subject re-enters frame
+fallback = "genjutsu_scail2"
+est_gpu_seconds = { draft = 60, final = 150 }
+
+[engines.genjutsu_scail2]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "SCAIL-2 (Wan2.1-14B): replacement / animation, multi-character, animals, masks"
+recipe = "scail2"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 30
+genjutsu_modes = ["character_swap", "motion_transfer"]
+subjects = ["any"]
+mode_scores = { character_swap = 0.80, motion_transfer = 0.72 }
+identity = 0.82                      # DPO LoRA
+motion = 0.80
+speed = 0.50
+max_native_seconds = 5
+segments = "extend chain (2 x 81 frames in-template; longer = Phase 2)"
+multi_subject = true
+in_place_replacement = true
+masked_swap = true
+wan_lora_compatible = true
+fallback = "genjutsu_wan_animate2"
+est_gpu_seconds = { draft = 240, final = 420 }
+
+[engines.genjutsu_wan_animate2]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "Wan-Animate-2 distilled (identity fallback, context windows)"
+recipe = "wan_animate2"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 40
+genjutsu_modes = ["motion_transfer", "character_swap"]
+subjects = ["human", "creature", "animal"]
+mode_scores = { motion_transfer = 0.70, character_swap = 0.65 }
+identity = 0.75
+motion = 0.75
+speed = 0.55
+max_native_seconds = 5
+segments = "context windows"
+multi_subject = true
+wan_lora_compatible = true
+est_gpu_seconds = { draft = 200, final = 360 }
+
+[engines.genjutsu_wan_vace_lora]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "Wan 2.1 VACE 14B + character LoRA (softedge control, chained 81f windows; v3f Character recipe)"
+recipe = "wan_vace_lora"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 35
+requires_character_lora = true      # only eligible when the shot names a character pack that ships a Wan 14B LoRA
+genjutsu_modes = ["motion_transfer", "character_swap"]
+subjects = ["human"]
+mode_scores = { motion_transfer = 0.72, character_swap = 0.70 }
+identity = 0.85                     # with a trained LoRA; ~0.5 without
+motion = 0.85                       # softedge = hard pose/framing lock (H3 Ref2VA treats the video as a soft reference)
+speed = 0.30
+max_native_seconds = 5
+segments = "chained 81-frame windows, 16-frame keep overlap"
+multi_subject = false
+wan_lora_compatible = true
+est_gpu_seconds = { draft = 600, final = 1150 }   # per 5 s @ 1280x720, 20 steps, cfg 6, 5090 fp8 ESTIMATE
+
+[engines.genjutsu_h3_objswap]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "H3 Fun ControlNet Union 2.0 mask-inpaint (object swap, SAM 3.1 tracked)"
+recipe = "h3_cn_object_swap"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 20
+genjutsu_modes = ["object_swap"]
+subjects = ["any"]
+mode_scores = { object_swap = 0.90 }
+identity = 0.75
+motion = 0.85
+speed = 0.70
+max_native_seconds = 15
+multi_subject = true
+native_audio = true
+est_gpu_seconds = { draft = 180, final = 560 }
+
+[engines.genjutsu_ltx_restyle]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "LTX-2.3 ReStyle IC-LoRA (restyle; strong on flat/cel styles)"
+recipe = "ltx_restyle"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 20
+genjutsu_modes = ["restyle"]
+subjects = ["any"]
+mode_scores = { restyle = 0.85 }
+identity = 0.60
+motion = 0.90
+speed = 0.80
+max_native_seconds = 10
+style_image_ref = true
+requires_style_image = true         # the IC guide frame IS the style image
+restyle_strengths = ["flat", "flat_only"]
+fallback = "genjutsu_h3_ref2va"
+est_gpu_seconds = { draft = 120, final = 300 }
+
+[engines.genjutsu_flashvsr]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "FlashVSR v1.1 (bulk upscaler)"
+recipe = "flashvsr_upscale"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 10
+genjutsu_modes = ["upscale"]
+subjects = ["any"]
+mode_scores = { upscale = 0.80 }
+speed = 0.95
+hero_quality = 0.60
+max_native_seconds = 30
+fallback = "genjutsu_seedvr2"
+est_gpu_seconds = { draft = 25, final = 45 }      # 10 s 720p -> 1080p ~41 s on a 5090 [S]
+
+[engines.genjutsu_seedvr2]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "SeedVR2 3B int8 (hero-shot upscaler)"
+recipe = "seedvr2_upscale"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 30
+genjutsu_modes = ["upscale"]
+subjects = ["any"]
+mode_scores = { upscale = 0.80 }
+speed = 0.30
+hero_quality = 0.95
+max_native_seconds = 30
+est_gpu_seconds = { draft = 160, final = 320 }
+
+[engines.genjutsu_x2]
+enabled = true
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "H3 X2 Detail VAE (free-ish 2x decode)"
+recipe = "x2_upscale"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 20
+genjutsu_modes = ["upscale"]
+subjects = ["any"]
+mode_scores = { upscale = 0.70 }
+speed = 0.90
+hero_quality = 0.50
+max_native_seconds = 30
+est_gpu_seconds = { draft = 20, final = 40 }
+
+[engines.minimax_api]
+enabled = true
+module = "app.engines.minimax_api:MiniMaxAPIEngine"
+label = "MiniMax H3 hosted API (paid fallback; Context-IR + 2K Regenerate)"
+billable = true
+mode = "dry_run"                     # no key yet: MINIMAX_API_KEY (env only) + the owner's per-job approval + billing switch
+verified = false
+hosted = true
+priority = 90
+genjutsu_modes = ["motion_transfer", "character_swap", "restyle"]
+subjects = ["any"]
+mode_scores = { motion_transfer = 0.90, character_swap = 0.60, restyle = 0.65 }
+identity = 0.85
+motion = 0.85
+speed = 0.85
+max_native_seconds = 15
+native_audio = true
+price_usd_per_output_second = { "768p" = 0.08, "2k" = 0.13 }   # platform.minimax.io (final sweep Oct 7 2026)
+video_ref_billed_per_input_second = true
+free_images = 5
+price_note = "Higgsfield Genjutsu API is $0.681 per input second at 720p (~8x more)"
+
+# ---- Phase 3+ product lines: registry stubs ONLY (TODO; not built, never routed)
+[engines.originals_h3_fl2va]
+enabled = false
+module = ""
+label = "Genie Jutsu ORIGINALS (keyframe-first H3 FL2VA multi-shot) - TODO"
+billable = true
+capabilities = []
+note = "TODO: script -> shot list -> Qwen-Image-2.1 keyframes -> H3 FL2VA chained -> X2/FlashVSR. See research/FINAL-SWEEP-2026-10-07.md section 5."
+
+[engines.genie_soul]
+enabled = false
+module = ""
+label = "Genie SOUL / Soul Cinema (Qwen-Image-2.1 + Z-Image Turbo presets, Soul ID LoRA) - TODO"
+billable = true
+capabilities = []
+note = "TODO: presets JSON in config/presets/, /soul/generate + /soul/train-id. See research/FINAL-SWEEP-2026-10-07.md section 6."
+
+# ================================================================ GPU providers (app/providers)
+# Keys come ONLY from the environment (RUNPOD_API_KEY, VAST_API_KEY, SALAD_API_KEY), never from this file.
+[providers.runpod_pod]
+mode = "approval_gated"              # the only live-capable provider; needs the owner's interactive OK per run
+hard_cap_usd = 6.00                   # Oct 23 Drake Shrek redo, the owner: hard cap $6.00 total
+watchdog_safety = 0.97   # e20 preview: $1.80 left to the $12 floor
+idle_seconds = 2700                   # bench v2: 101 GB image pull
+cloud_type = "SECURE"                # network volumes are Secure Cloud only
+min_ram_gb = 48
+min_vcpu = 8
+min_balance_buffer_usd = 1.0
+volume_usd_per_gb_month = 0.07
+price_basis = "RunPod public gpuTypes API, Oct 7 2026 (secure / community)"
+gpus = [
+  { id = "NVIDIA GeForce RTX 5090", name = "5090", vram_gb = 32, usd_per_hr = 0.99, community_usd_per_hr = 0.69 },
+  { id = "NVIDIA GeForce RTX 3090", name = "any24x", vram_gb = 24, usd_per_hr = 0.43, community_usd_per_hr = 0.22 },
+  { id = "NVIDIA RTX A6000", name = "any24", vram_gb = 48, usd_per_hr = 0.49, community_usd_per_hr = 0.33 },
+  { id = "NVIDIA A40", name = "any24", vram_gb = 48, usd_per_hr = 0.44, community_usd_per_hr = 0.35 },  # v2: same Ampere sm_86 as A6000 (A6000 stock out)
+  { id = "NVIDIA GeForce RTX 4090", name = "any24x", vram_gb = 24, usd_per_hr = 0.69, community_usd_per_hr = 0.34 },
+  { id = "NVIDIA L40S", name = "any24x", vram_gb = 48, usd_per_hr = 0.86, community_usd_per_hr = 0.79 },
+  { id = "NVIDIA GeForce RTX 5090", name = "any24x", vram_gb = 32, usd_per_hr = 0.99, community_usd_per_hr = 0.69 },
+  { id = "NVIDIA RTX PRO 6000 Blackwell Server Edition", name = "pro6000", vram_gb = 96, usd_per_hr = 2.49, community_usd_per_hr = 1.69 },
+  { id = "NVIDIA A100-SXM4-80GB", name = "a100", vram_gb = 80, usd_per_hr = 1.79, community_usd_per_hr = 1.39 },
+  { id = "NVIDIA A100 80GB PCIe", name = "a100", vram_gb = 80, usd_per_hr = 1.79, community_usd_per_hr = 1.39 },
+  { id = "NVIDIA H100 80GB HBM3", name = "h100", vram_gb = 80, usd_per_hr = 3.99, community_usd_per_hr = 2.69 },
+  { id = "NVIDIA H200", name = "h200", vram_gb = 141, usd_per_hr = 5.29, community_usd_per_hr = 3.59 },
+  { id = "NVIDIA H200 NVL", name = "h200", vram_gb = 143, usd_per_hr = 5.29, community_usd_per_hr = 3.59 },
+  { id = "NVIDIA B200", name = "b200", vram_gb = 180, usd_per_hr = 7.99, community_usd_per_hr = 5.98 },
+]
+
+[providers.runpod_serverless]
+mode = "dry_run"
+workers_max = 1
+idle_timeout_s = 5
+execution_timeout_s = 1800
+price_basis = "Flex worker per-second rates are higher than pods; confirm on the console before Phase 3"
+gpus = [{ id = "NVIDIA GeForce RTX 5090", name = "5090", vram_gb = 32, usd_per_hr = 1.10 }]
+
+[providers.salad]
+mode = "dry_run"
+org = "your-salad-org"
+project = "default"
+priority = "high"
+price_basis = "Salad RTX 5090 list price Oct 7 2026 (high 0.50 / batch 0.25)"
+gpus = [{ id = "rtx5090", name = "5090", vram_gb = 32, usd_per_hr = 0.50, batch_usd_per_hr = 0.25 }]
+
+[providers.vast]
+mode = "dry_run"
+price_basis = "Vast.ai 5090 marketplace ~$0.40-0.53/h (final sweep, secondary sources); varies per host"
+min_reliability = 0.98
+min_inet_down_mbps = 1000            # 160 GB of models: slow hosts eat the savings
+gpus = [{ id = "RTX 5090", name = "5090", vram_gb = 32, usd_per_hr = 0.53 }]
+
+[providers.local_omen]
+mode = "plan_only"                   # the owner's own PC: free, but the box cannot start jobs on it by itself
+host = "HP OMEN 30L GT13 (Windows 11)"
+gpu = "RTX 2060 12GB (Turing sm75)"
+ram_gb = 32
+comfy_dir = "E:\\ComfyUI"
+models_dir = "E:\\models"
+price_basis = "own hardware (electricity only)"
+gpus = [{ id = "rtx2060", name = "omen", vram_gb = 12, usd_per_hr = 0.0 }]
+
+# ---------------------------------------------------------------- Universal routes (Oct 14 2026): STUBS, enabled=false
+# Not auto-picked until a measured run sets enabled=true + verified. app/genjutsu/router.universal_plan() lists them by subject_type.
+[engines.genjutsu_h3_swaplora]
+enabled = false
+stub = true
+workflow = "config/workflows/universal/h3_swaplora.api.json"   # server-validated Oct 14, never rendered
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "H3 Ref2VA + Character Swap LoRA v1.0 (Alissonerdx r64, native Comfy JSON)"
+recipe = "h3_swaplora"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 15
+genjutsu_modes = ["character_swap"]
+subjects = ["human", "stylized", "creature", "animal"]
+universal_subject_types = ["human", "stylized", "creature"]
+mode_scores = { character_swap = 0.80 }
+identity = 0.80
+motion = 0.85
+speed = 0.55
+max_native_seconds = 15
+in_place_replacement = true
+native_audio = true
+links = ["https://huggingface.co/Alissonerdx/Minimax-H3-ComfyUI", "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA"]
+
+[engines.genjutsu_mocha]
+enabled = false
+stub = true
+workflow = "config/workflows/universal/mocha.api.json"   # server-validated Oct 14, never rendered
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "MoCha (first-frame mask + refs, no pose/depth; Kijai WanVideoWrapper)"
+recipe = "mocha"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 18
+genjutsu_modes = ["character_swap", "object_swap"]
+subjects = ["any"]
+universal_subject_types = ["human", "stylized", "creature", "object"]
+mode_scores = { character_swap = 0.80, object_swap = 0.75 }
+identity = 0.80
+motion = 0.80
+speed = 0.50
+max_native_seconds = 5
+segments = "context windows"
+in_place_replacement = true
+handles_occlusion = true
+links = ["https://github.com/Orange-3DV-Team/MoCha", "https://github.com/kijai/ComfyUI-WanVideoWrapper"]
+
+[engines.genjutsu_wan22_animate_replace]
+enabled = false
+stub = true
+workflow = "config/workflows/universal/wan22_animate_replace.api.json"   # server-validated Oct 14, never rendered
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "Wan2.2-Animate-14B replace mode (pose + face-expression stream + relight LoRA)"
+recipe = "wan22_animate_replace"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 22
+genjutsu_modes = ["character_swap"]
+subjects = ["human", "stylized"]
+universal_subject_types = ["human", "stylized"]
+mode_scores = { character_swap = 0.78 }
+identity = 0.75
+motion = 0.85
+speed = 0.45
+max_native_seconds = 5
+segments = "context windows"
+in_place_replacement = true
+expression_stream = true
+links = ["https://github.com/Wan-Video/Wan2.2"]
+
+[engines.genjutsu_depth_only]
+enabled = false
+stub = true
+workflow = "config/workflows/universal/depth_only.api.json"   # server-validated Oct 14, never rendered
+module = "app.engines.genjutsu_comfy:GenjutsuComfyEngine"
+label = "Depth/softedge-only regen (H3 Fun CN or VACE, no skeleton) for big shape changes"
+recipe = "depth_only"
+billable = true
+mode = "dry_run"
+verified = false
+priority = 30
+genjutsu_modes = ["character_swap", "object_swap"]
+subjects = ["any"]
+universal_subject_types = ["stylized", "creature", "object"]
+mode_scores = { character_swap = 0.65, object_swap = 0.70 }
+identity = 0.65
+motion = 0.75
+speed = 0.60
+max_native_seconds = 15
+links = ["https://github.com/ByteDance-Seed/Depth-Anything-3"]
+
+# ---------------------------------------------------------------- auto swap (Oct 17 2026)
+# The system makes the calls (app/genjutsu/auto_swap.py, scripts/auto_swap.py). Default engine for person swaps.
+[auto_swap]
+engine = "h3swap_akatz"             # Oct 17: A = akatz H3 Character Swap V1.5 (default), B = h3swap_alis, C = wan22_animate_replace (Kijai stock); see [h3swap]
+tier = "720p"                       # native aspect, long side 1280, /16 bucket, never crop
+bg_lock = false                     # round-5 halo source; opt-in only
+grain = false
+skin_finish = false
+stall_s = 600                       # only auto-stop: no ComfyUI progress for 10 min
+drift_guard = false                 # opt-in; killed healthy renders in round 5
+min_refs = 3                        # fail closed below this
+mask_grow_px = 0                    # DEFAULT tight person mask + feather (the owner Oct 17: outline showed exactly at the grown border). Option C Kijai stock = 10 (+Blockify 32), opt-in only via JUTSU_MASK_GROW=10
+mask_feather_px = 3                 # soft edge on the tight mask (2-4 px)
+
+[h3swap]
+default = "h3swap_akatz"            # A: akatz V1.5 @1.0 + turbo v4 step600 EMA @1.0 + fal Realism People @0.7 (prefix r34l1sm), 8 steps, CFG 1, er_sde/normal, 24 fps, 17n+5. (model-card fl2v turbo8 768p = toggle turbo="card")
+option_b = "h3swap_alis"            # B: Alissonerdx char swap 1.0 + head swap 0.5, AddGuide frame_idx 0, body_swap: prompt
+option_c = "wan22_animate_replace"  # C: Wan 2.2 Animate replace; tight mask (grow 0, feather 3) by default, Kijai stock grow 10 + blockify 32 via JUTSU_MASK_GROW=10
+frames = "17n+5"                    # H3 grid at 24 fps (124 = 5.17 s)
+bg_lock = false
+composite = false                   # full-frame regen, never paste model output back onto the source
+grain = false
+image = "worker/Dockerfile.h3swap"  # manifest group "h3swap"

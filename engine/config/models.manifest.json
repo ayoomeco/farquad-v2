@@ -1,0 +1,216 @@
+{
+ "schema": "genie-jutsu/models-manifest@1",
+ "generated": "2026-10-07",
+ "note": "target paths are relative to the model root (network volume: /workspace on pods, /runpod-volume on serverless). Nothing here is baked into the worker image.",
+ "groups": {
+  "gjfast": [
+   "gjfast"
+  ]
+ },
+ "bundle_bytes": {
+  "gjfast": 41447520855
+ },
+ "group_bytes": {
+  "gjfast": 41447520855
+ },
+ "models": [
+  {
+   "id": "h3_te_nvfp4",
+   "repo": "Comfy-Org/MiniMax-H3",
+   "file": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+   "size_bytes": 15687142551,
+   "sha256": "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6",
+   "target": "models/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+   "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+   "bundles": [
+    "bench_v2",
+    "drake5",
+    "facepass",
+    "fplong",
+    "fullperson",
+    "gjfast",
+    "h3",
+    "h3swap",
+    "h3swap_min",
+    "kenny",
+    "omen",
+    "r3combo",
+    "round2",
+    "round3",
+    "h3mesh",
+    "gjmesh"
+   ],
+   "note": "Qwen3-VL 32B TE, NVFP4 (Blackwell: 5090 / PRO 6000). Use int8_convrot (27 GB) on pre-Blackwell"
+  },
+  {
+   "id": "h3_video_vae_int8",
+   "repo": "Comfy-Org/MiniMax-H3",
+   "file": "vae/minimax_h3_video_vae_int8_convrot.safetensors",
+   "size_bytes": 2811065184,
+   "sha256": "52a2c8c73583c86e4f41cdcce3a6ad0ea562987bc0bf3d60a0cef5f5c8e60c0e",
+   "target": "models/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+   "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_int8_convrot.safetensors",
+   "bundles": [
+    "bench_v2",
+    "drake5",
+    "facepass",
+    "fplong",
+    "fullperson",
+    "gjfast",
+    "h3",
+    "h3swap",
+    "h3swap_min",
+    "kenny",
+    "omen",
+    "r3combo",
+    "round2",
+    "round3",
+    "viggle",
+    "h3mesh",
+    "gjmesh"
+   ],
+   "note": ""
+  },
+  {
+   "id": "h3_audio_vae",
+   "repo": "Comfy-Org/MiniMax-H3",
+   "file": "vae/minimax_h3_audio_vae_fp32.safetensors",
+   "size_bytes": 605254808,
+   "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48",
+   "target": "models/vae/minimax_h3_audio_vae_fp32.safetensors",
+   "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+   "bundles": [
+    "bench_v2",
+    "drake5",
+    "facepass",
+    "fplong",
+    "fullperson",
+    "gjfast",
+    "h3",
+    "h3swap",
+    "h3swap_min",
+    "kenny",
+    "omen",
+    "r3combo",
+    "round2",
+    "round3",
+    "h3mesh",
+    "gjmesh"
+   ],
+   "note": "native stereo audio"
+  },
+  {
+   "id": "akatz_charswap",
+   "repo": "akatz-ai/MiniMax-H3-Character-Swap-LoRA",
+   "file": "h3_character_swap_pro4500_1000.safetensors",
+   "size_bytes": 155110320,
+   "sha256": "4b2a3f420ae804c0aa3422761ff84dbd1bf52eef6900ffab6d2e66df63cb4e79",
+   "target": "models/loras/h3_character_swap_pro4500_1000.safetensors",
+   "url": "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/resolve/main/h3_character_swap_pro4500_1000.safetensors",
+   "bundles": [
+    "bench_v2",
+    "better_lite",
+    "gjfast",
+    "h3_swaplora",
+    "kenny",
+    "r3combo",
+    "round2",
+    "universal",
+    "gjmesh"
+   ],
+   "note": "Oct 13 better-build rung"
+  },
+  {
+   "id": "turbo_v4",
+   "repo": "larryvrh/MiniMax-H3-Turbo-Lora",
+   "file": "minimax_h3_turbo_v4_step600_ema.safetensors",
+   "size_bytes": 779849816,
+   "sha256": "5f3a626cd72c93a8b9318d6760c510bc5092d2ab13aaba1f932c5bab07a416d3",
+   "target": "models/loras/minimax_h3_turbo_v4_step600_ema.safetensors",
+   "url": "https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/resolve/main/minimax_h3_turbo_v4_step600_ema.safetensors",
+   "bundles": [
+    "bench_v2",
+    "better_lite",
+    "drake5",
+    "gjfast",
+    "h3swap",
+    "h3swap_min",
+    "h3mesh",
+    "gjmesh"
+   ],
+   "note": "Oct 13 better-build rung"
+  },
+  {
+   "id": "fal_realism_people",
+   "repo": "fal/MiniMax-H3-Realism-People-LoRA",
+   "file": "h3-realism-people-t2v-i2v-r2v.safetensors",
+   "size_bytes": 131229656,
+   "sha256": "acc529601d2da117fb81179e76c56e488a3beab1171659d305f04fa3655b787e",
+   "target": "models/loras/h3-realism-people-t2v-i2v-r2v.safetensors",
+   "url": "https://huggingface.co/fal/MiniMax-H3-Realism-People-LoRA/resolve/main/h3-realism-people-t2v-i2v-r2v.safetensors",
+   "bundles": [
+    "bench_v2",
+    "drake5",
+    "facepass",
+    "gjfast",
+    "h3swap",
+    "h3swap_min",
+    "r3combo",
+    "round2",
+    "round3",
+    "universal",
+    "h3mesh",
+    "gjmesh"
+   ],
+   "note": "Oct 15 round 2: skin realism (trigger r34l1sm, 0.6-0.8)"
+  },
+  {
+   "id": "akatz_charswap_v15",
+   "repo": "akatz-ai/MiniMax-H3-Character-Swap-LoRA",
+   "file": "h3_character_swap_v1.5.safetensors",
+   "size_bytes": 155110792,
+   "sha256": "8f2c3c3eba161df8d0c6099598b4730f641f5ce01e04cd16d2427cff8a35218f",
+   "target": "models/loras/h3_character_swap_v1.5.safetensors",
+   "url": "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/resolve/main/h3_character_swap_v1.5.safetensors",
+   "bundles": [
+    "bench_v2",
+    "drake5",
+    "gjfast",
+    "h3swap",
+    "h3swap_min",
+    "h3mesh",
+    "gjmesh"
+   ],
+   "note": "Oct 16 2026 V1.5 (recommended), strength 1.0; engine h3swap_akatz (option A). MiniMax H3 Community License"
+  },
+  {
+   "id": "singularity_pruned_int8",
+   "repo": "WarmBloodAban/Minimax-h3_Singularity",
+   "file": "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
+   "size_bytes": 20967647456,
+   "sha256": "412a7b126595a958964193f3b42513d7cf2df4196ef04223a0f05e3622949cce",
+   "target": "models/diffusion_models/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
+   "url": "https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity/resolve/main/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
+   "bundles": [
+    "bench_v2",
+    "gjfast",
+    "gjmesh"
+   ],
+   "note": "bench v2 slim"
+  },
+  {
+   "id": "motion_repair_v2",
+   "repo": "JOKER141/MiniMax-H3-General-Motion-Continuity-Repair",
+   "file": "Motion_Repair_V2.safetensors",
+   "size_bytes": 155110272,
+   "sha256": "edfa0e2858caeba7be9108883f61da8525d3c58af998c94ac7a449d9603d7574",
+   "target": "models/loras/Motion_Repair_V2.safetensors",
+   "url": "https://huggingface.co/JOKER141/MiniMax-H3-General-Motion-Continuity-Repair/resolve/main/Motion_Repair_V2.safetensors",
+   "bundles": [
+    "bench_v2",
+    "gjfast"
+   ],
+   "note": "bench v2 slim"
+  }
+ ]
+}
