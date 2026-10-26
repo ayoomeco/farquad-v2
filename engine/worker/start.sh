@@ -65,5 +65,7 @@ if [ "${JUTSU_ENABLE_FASTH3:-0}" = 1 ]; then MODEL_ROOT=$MODEL_ROOT JUTSU_UNCHUN
 PP=${PP#:}; PP=${PP%:}; [ -n "$PP" ] && export PYTHONPATH="$PP${PYTHONPATH:+:$PYTHONPATH}"
 mkdir -p /models/vae_approx /models/latent_upscale_models /models/mediapipe && ln -sfn /models/vae_approx "$JUTSU/ComfyUI/models/vae_approx" 2>/dev/null || true
 echo "[start] flags sage=${JUTSU_SAGE:-2.2} sm120mode=${JUTSU_SAGE_SM120_MODE:-qk_int8_pv_fp16_cuda} sage3=${JUTSU_ENABLE_SAGE3:-0} spark=${JUTSU_ENABLE_SPARK:-0} relay=${JUTSU_ENABLE_H3RELAY:-0} fasth3=${JUTSU_ENABLE_FASTH3:-0}"
+# A08: every boot refreshes h3_exact_lora and refuses to start on ComfyUI older than 0.42.5.
+JUTSU_PREFIX=$JUTSU bash "$HERE/ensure_a08.sh"
 cd "$JUTSU/ComfyUI"
 exec "$JUTSU/venv/bin/python" main.py "${FLAGS[@]}"

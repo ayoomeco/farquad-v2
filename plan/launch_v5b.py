@@ -8,7 +8,7 @@ if not os.path.exists(f'{R}/B0.txt'):
     try:
         sys.path.insert(0,FH+'/lib'); import pods as _P; open(f'{R}/B0.txt','w').write(f'{_P.c.balance():.4f}')
     except Exception as e: print('B0 not written:',type(e).__name__)
-args=['python3',B+'/scripts/phase1_bakeoff.py','launch']+(['--attach-pod',os.environ['ATTACH']] if os.environ.get('ATTACH') else [])+['--refine','--fullperson','--gpu',os.environ.get('BENCH_GPU','any24'),'--cloud',os.environ.get('BENCH_CLOUD','COMMUNITY'),'--cap',cap,'--linger',os.environ.get('LINGER','600'),
+args=['python3',B+'/scripts/phase1_bakeoff.py','launch']+(['--attach-pod',os.environ['ATTACH']] if os.environ.get('ATTACH') else [])+['--refine','--fullperson','--gpu',os.environ.get('BENCH_GPU','any24'),'--cloud',os.environ.get('BENCH_CLOUD','COMMUNITY'),'--cap',cap,'--linger',os.environ.get('LINGER','1800'),
       '--i-approve-spend','--create-attempts','8','--allow-pro6000']
 os.environ.update(JUTSU_CUDA_LIST=os.environ.get('BENCH_CUDA','13.1,13.2'), JUTSU_UNCHUNK='0', FP_IMAGE='ghcr.io/ayoomeco/chywgja@sha256:5727e5567c6a6b86ed8a0162b9834e6a93030f6b4a0daae4c9988a7a27d7d1f9', FP_BOOT_TIMEOUT='720',
     JUTSU_CONFIG=B+'/dsr/genie_dsr.toml', JUTSU_STALL_S='900', FP_RUN_DIR=R, FP_GROUP='gjfast', JUTSU_ENABLE_H3RELAY='1', FP_REVIEW='dsr', FP_DISK_GB='240',

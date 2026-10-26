@@ -2,11 +2,12 @@
 # Genie Jutsu worker install (shared by the Dockerfile AND the Phase-1 "install onto network volume" path).
 #   PREFIX=/opt/jutsu  bash install.sh          # image build
 #   PREFIX=/workspace/jutsu bash install.sh     # onto a RunPod network volume (persists across pods)
-# Installs: Python venv, torch 2.13.0+cu130, ComfyUI v0.39.1 (>= 0.39 required: light H3 VAE, lower H3 peak VRAM, w6a8, ID-V2V, lighter SeedVR2), pinned custom nodes, SageAttention 2.2.0
+# Installs: Python venv, torch 2.13.0+cu130, ComfyUI v0.42.5 or newer (A08; older tags are upgraded by ensure_a08.sh), pinned custom nodes, the vendored h3_exact_lora node, SageAttention 2.2.0
 # (built for sm_120 Blackwell, best-effort), hf_transfer. NO model weights (see config/models.manifest.json).
 set -euo pipefail
 PREFIX=${PREFIX:-/opt/jutsu}
-COMFY_REF=${COMFY_REF:-v0.39.1}            # never below v0.39.0
+COMFY_REF=${COMFY_REF:-v0.42.5}            # A08 minimum; ensure_a08.sh refuses anything older
+COMFY_GIT=${COMFY_GIT:-https://github.com/Comfy-Org/ComfyUI.git}
 TORCH_VER=${TORCH_VER:-2.13.0}
 TORCHVISION_VER=${TORCHVISION_VER:-0.28.0}
 CUDA_TAG=${CUDA_TAG:-cu130}
@@ -22,7 +23,7 @@ if command -v uv >/dev/null 2>&1; then uv venv -p "$PY" "$PREFIX/venv"; PIP="uv 
 export UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT:-300} UV_HTTP_RETRIES=${UV_HTTP_RETRIES:-8} UV_CONCURRENT_DOWNLOADS=${UV_CONCURRENT_DOWNLOADS:-8}
 retry() { local n; for n in 1 2 3 4; do "$@" && return 0; echo "[install] attempt $n failed: $*; retrying in $((n * 15))s"; sleep $((n * 15)); done; return 1; }
 retry $PIP "torch==$TORCH_VER" "torchvision==$TORCHVISION_VER" torchaudio --index-url "https://download.pytorch.org/whl/$CUDA_TAG"
-[ -d "$PREFIX/ComfyUI" ] || git clone --depth 1 --branch "$COMFY_REF" https://github.com/comfyanonymous/ComfyUI.git "$PREFIX/ComfyUI"
+[ -d "$PREFIX/ComfyUI" ] || git clone --depth 1 --branch "$COMFY_REF" "$COMFY_GIT" "$PREFIX/ComfyUI"
 retry $PIP -r "$PREFIX/ComfyUI/requirements.txt"
 retry $PIP hf_transfer huggingface_hub websocket-client opencv-python-headless triton
 grep -vE '^\s*(#|$)' "$HERE/custom_nodes.txt" | while read -r url pin dir; do
@@ -80,6 +81,8 @@ else
   echo "[install] WARN nvcc not found: skipping SageAttention (SDPA fallback)"
 fi
 cp "$HERE/extra_model_paths.yaml" "$PREFIX/ComfyUI/extra_model_paths.yaml"
+# A08: exact LoRA stack node + version gate. Copies h3_exact_lora and upgrades ComfyUI when the checkout is older than 0.42.5.
+JUTSU_PREFIX="$PREFIX" bash "$HERE/ensure_a08.sh"
 "$PREFIX/venv/bin/python" -c "import torch; print('[install] torch', torch.__version__, 'cuda', torch.version.cuda)"
 touch "$PREFIX/.install-ok-$COMFY_REF-$TORCH_VER"
 echo "[install] done -> $PREFIX"

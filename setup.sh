@@ -25,6 +25,7 @@ dl https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11l-seg.pt
 chmod +x "$FH"/*.sh "$FH"/polish/pod/*.sh "$FH"/engine/worker/*.sh 2>/dev/null || true
 cd "$FH/plan"
 python -c "import sys; sys.path.insert(0,'$FH/lib'); import fx, qc_v5b3, graphs_v5b; print('imports ok')"
+python test_a08_defaults.py
 DRYCHECK=1 DSR_RUN=/tmp python driver_v5b3.py
 DRY=1 DRY_STATE='{"pods":[],"bal":10}' python idle_watchdog.py
 (cd "$FH/engine" && python -c "import sys; sys.path.insert(0,'scripts'); sys.argv=['x']; import phase1_bakeoff; print('engine import ok')")

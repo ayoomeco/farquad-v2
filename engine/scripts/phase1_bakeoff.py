@@ -695,8 +695,13 @@ def boot_payload(groups: list[str]) -> str:
     with tarfile.open(fileobj=buf, mode='w:gz') as t:
         for f in ('install.sh', 'custom_nodes.txt', 'start.sh', 'extra_model_paths.yaml', 'bootstrap_volume.py', 'assemble_uploads.sh',
                   'phase1_boot.sh', 'unchunk_models.sh', 'status_server.py', 'wangp_install.sh', 'wangp_driver.py', 'patches/latentsync_audio_patch.py',
-                  'patches/ls_vae_patch.py'):
+                  'patches/ls_vae_patch.py', 'ensure_a08.sh', 'post_a08.py'):
             t.add(ROOT / 'worker' / f, arcname=f'worker/{f}')
+        node = ROOT / 'worker' / 'custom_nodes' / 'h3_exact_lora'
+        for p in sorted(node.rglob('*')):
+            if not p.is_file() or p.suffix == '.pyc' or '__pycache__' in p.parts:
+                continue
+            t.add(p, arcname=f"worker/custom_nodes/h3_exact_lora/{p.relative_to(node).as_posix()}")
         data = json.dumps(m, separators=(',', ':')).encode()
         ti = tarfile.TarInfo('config/models.manifest.json'); ti.size = len(data); t.addfile(ti, io.BytesIO(data))
     return base64.b64encode(buf.getvalue()).decode()
@@ -1553,13 +1558,16 @@ def launch(plan: dict, cap: float, approve_flag: bool, option: str, allow_pro600
             sleep(15)
         setup_s = round(time.time() - t0, 1)
         log(f"[setup] ComfyUI ready after {setup_s:.0f}s (${s.spent():.2f} so far)")
+        need = {n['class_type'] for g in graphs.values() for n in g.values() if isinstance(n, dict) and n.get('class_type')}
         try:
             objs = comfy.get_json('/object_info')
-            need = {n['class_type'] for g in graphs.values() for n in g.values()}
             miss = sorted(need - set(objs))
             log(f"[setup] {len(objs)} node classes; missing for this plan: {miss or 'none'}")
         except Exception as e:
             miss = None; log(f'[setup] object_info failed: {e}')
+        a08_need = need & {'H3ExactLoraStack', 'H3LoadReport'}
+        if a08_need and (miss is None or any(n in (miss or []) for n in a08_need)):
+            raise BudgetExceeded(f'A08 nodes missing from ComfyUI (load check cannot run): {sorted(a08_need)} missing={miss}')
         if plan.get('box_uploads'):
             push_box_uploads(comfy, plan['box_uploads'], s, log=log, sleep=sleep)
         if ws_factory:
@@ -1609,6 +1617,10 @@ def launch(plan: dict, cap: float, approve_flag: bool, option: str, allow_pro600
                 except Exception as e:
                     log(f'[compare] failed ({e})')
             if not queue:
+                # A queued pod command (the A08 stitch/encode) keeps the pod up until its .out lands.
+                pending_cmds = [f for f in (OUT / 'pod_cmds').glob('*.sh') if not f.with_suffix('.out').exists()]
+                if pending_cmds:
+                    linger_t0 = time.time()
                 linger_t0 = linger_t0 or time.time()
                 if time.time() - linger_t0 > linger_s:
                     break
@@ -1680,7 +1692,7 @@ def launch(plan: dict, cap: float, approve_flag: bool, option: str, allow_pro600
                 continue
             if res['status'] == 'stopped_by_watchdog':
                 break
-            if 'JUTSU vae-check FAIL' in (res.get('error') or '') or 'JUTSU no-loop' in (res.get('error') or ''):   # Oct 17 abort rules: fail-closed guards -> stop the session, never retry
+            if any(s in (res.get('error') or '') for s in ('JUTSU vae-check FAIL', 'JUTSU no-loop', 'H3 load check FAILED')):   # fail-closed guards -> stop the session, never retry
                 log(f"[abort] {r['id']}: {(res.get('error') or '').strip()[:200]} -> STOP (no retries, terminating)")
                 (OUT / 'STOP').write_text('fail-closed guard: ' + (res.get('error') or '')[:500]); break
             fails[r['id']] = fails.get(r['id'], 0) + 1

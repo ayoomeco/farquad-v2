@@ -1,5 +1,7 @@
-# Pinned custom nodes for the jutsu-worker (Oct 7 2026; same set installed on the box's CPU ComfyUI v0.39.1 used for the
+# Pinned custom nodes for the jutsu-worker (Oct 7 2026; same set installed on the box's CPU ComfyUI used for the
 # offline UI->API conversion and the object_info snapshot).
+# h3_exact_lora is vendored at worker/custom_nodes/h3_exact_lora and installed by install.sh / ensure_a08.sh.
+# It is intentionally not a git or zip line in this file: the installer would try to clone it.
 #
 # Two line formats:
 #   <git repo url>  <commit>                         -> git clone + checkout
