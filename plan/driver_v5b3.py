@@ -1,8 +1,10 @@
-"""Farquad V1 card driver v3 = driver_v5b (V1 recipe unchanged) + pop-in check per piece,
-auto re-roll (max 5, keep best) with targeted prompt fixes, then AUTO-STITCH + AUTO-TERMINATE when done.
-Usage: DSR_RUN=<run dir> python driver_v5b3.py <slug...>   (GRAPHS=graphs_v5b2 to use the V2 graph module)"""
+"""GJ V2 card driver: graphs_v5b (A08) + pop-in check per piece, auto re-roll (max 5, keep best)
+with targeted prompt fixes, then on-pod post and terminate when done.
+Usage: DSR_RUN=<run dir> python driver_v5b3.py <slug...>   (GRAPHS=graphs_v5b2 to use another graph module)"""
 import os, sys, json, subprocess, importlib, pathlib, time
-FH=os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad')); sys.path.insert(0,FH+'/plan')
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
+FH=gj_home(); sys.path.insert(0,FH+'/plan')
 G=importlib.import_module(os.environ.get('GRAPHS','graphs_v5b'))
 G.FIX.setdefault('pop'," Keep every person present for the whole shot exactly as in <Video 1>; no one appears, vanishes or changes identity.")
 import qc_v5b3 as Q
@@ -19,6 +21,6 @@ src=src.replace("int(os.environ.get(\"TRIES\",\"5\"))","min(5,int(os.environ.get
 assert 'Q.popin' in src and 'expr' not in src and "'pop'" in src
 if os.environ.get('DRYCHECK'): print('patched ok'); sys.exit(0)
 exec(compile(src,'driver_v5b3','exec'))
-# ---- finish: auto-stitch, then hand to finisher (terminate + verify 0 pods)
+# ---- finish: on-pod post (upscale/stitch/score/encode), then terminate + verify 0 pods
 R=pathlib.Path(os.environ['DSR_RUN'])
 subprocess.run([sys.executable,FH+'/plan/finish_v5b3.py',str(R)]+SLUGS)

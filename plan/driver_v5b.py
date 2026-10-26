@@ -1,6 +1,8 @@
 """Viral 5b V1 card driver (natural mouth, full frame, 24-f warm-up): for each slug in argv, linked 141-f pieces, <=5 targeted tries each, keep best. Checks inside the lead masks."""
 import json, time, pathlib, sys, os, subprocess, glob, numpy as np, cv2
-FH=os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad')); sys.path.insert(0,FH+'/lib'); sys.path.insert(0,FH+'/plan')
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
+FH=gj_home(); sys.path.insert(0,FH+'/lib'); sys.path.insert(0,FH+'/plan')
 from graphs_v5b import graph, LEN, STEP, CLIPS; from fx import faces
 R=pathlib.Path(os.environ['DSR_RUN']); CL=FH+'/engine/data/bakeoff/clips'; V=FH; WU=24; W,H=1152,640
 LOG=open(R/'checks.jsonl','a',buffering=1); SLUGS=sys.argv[1:]

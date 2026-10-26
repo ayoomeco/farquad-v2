@@ -2,11 +2,13 @@
 # Genie Jutsu worker install (shared by the Dockerfile AND the Phase-1 "install onto network volume" path).
 #   PREFIX=/opt/jutsu  bash install.sh          # image build
 #   PREFIX=/workspace/jutsu bash install.sh     # onto a RunPod network volume (persists across pods)
-# Installs: Python venv, torch 2.13.0+cu130, ComfyUI v0.39.1 (>= 0.39 required: light H3 VAE, lower H3 peak VRAM, w6a8, ID-V2V, lighter SeedVR2), pinned custom nodes, SageAttention 2.2.0
-# (built for sm_120 Blackwell, best-effort), hf_transfer. NO model weights (see config/models.manifest.json).
+# Installs: Python venv, torch 2.13.0+cu130, ComfyUI v0.42.5 or newer, the vendored h3_exact_lora node,
+# pinned custom nodes, SageAttention 2.2.0 (built for sm_120 Blackwell, best-effort), hf_transfer.
+# NO model weights (see config/models.manifest.json). GJ V2 refuses ComfyUI older than 0.42.5:
+# stock loaders keep only the last chained bypass LoRA and merge adaLN weights lossily.
 set -euo pipefail
 PREFIX=${PREFIX:-/opt/jutsu}
-COMFY_REF=${COMFY_REF:-v0.39.1}            # never below v0.39.0
+COMFY_REF=${COMFY_REF:-v0.42.5}            # GJ V2: 0.42.5 or newer, never below
 TORCH_VER=${TORCH_VER:-2.13.0}
 TORCHVISION_VER=${TORCHVISION_VER:-0.28.0}
 CUDA_TAG=${CUDA_TAG:-cu130}
@@ -23,6 +25,68 @@ export UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT:-300} UV_HTTP_RETRIES=${UV_HTTP_RETRIES
 retry() { local n; for n in 1 2 3 4; do "$@" && return 0; echo "[install] attempt $n failed: $*; retrying in $((n * 15))s"; sleep $((n * 15)); done; return 1; }
 retry $PIP "torch==$TORCH_VER" "torchvision==$TORCHVISION_VER" torchaudio --index-url "https://download.pytorch.org/whl/$CUDA_TAG"
 [ -d "$PREFIX/ComfyUI" ] || git clone --depth 1 --branch "$COMFY_REF" https://github.com/comfyanonymous/ComfyUI.git "$PREFIX/ComfyUI"
+# Upgrade an image that already has an older ComfyUI checkout. Overlay the tag tarball if git checkout cannot.
+if [ -d "$PREFIX/ComfyUI/.git" ]; then
+  git -C "$PREFIX/ComfyUI" fetch --depth 1 origin "refs/tags/${COMFY_REF}:refs/tags/${COMFY_REF}" || true
+  git -C "$PREFIX/ComfyUI" checkout -q -f "$COMFY_REF" || true
+fi
+export COMFY_REF PREFIX
+set +e
+COMFY_VER=$(PREFIX="$PREFIX" COMFY_REF="$COMFY_REF" "$PREFIX/venv/bin/python" - <<'PY'
+import os, pathlib, re, sys
+def parse(s):
+    out = []
+    for part in s.replace("v", "").split("."):
+        num = ""
+        for ch in part:
+            if ch.isdigit():
+                num += ch
+            else:
+                break
+        if num:
+            out.append(int(num))
+    return tuple(out)
+want = parse(os.environ.get("COMFY_REF", ""))
+if want < (0, 42, 5):
+    sys.exit(f"[install] FATAL COMFY_REF {os.environ.get('COMFY_REF')} is older than 0.42.5")
+p = pathlib.Path(os.environ["PREFIX"]) / "ComfyUI" / "comfyui_version.py"
+text = p.read_text() if p.exists() else ""
+m = re.search(r"__version__\s*=\s*['\"]([^'\"]+)", text)
+got = m.group(1) if m else ""
+if parse(got) < (0, 42, 5):
+    sys.exit(2)
+print(got)
+PY
+)
+rc=$?
+set -e
+if [ "$rc" = 2 ]; then
+  echo "[install] overlaying ComfyUI ${COMFY_REF}"
+  tmp=$(mktemp -d)
+  curl -fsSL "https://github.com/Comfy-Org/ComfyUI/archive/refs/tags/${COMFY_REF}.tar.gz" -o "$tmp/c.tgz"
+  tar -xzf "$tmp/c.tgz" -C "$tmp"
+  cp -a "$tmp"/ComfyUI-*/. "$PREFIX/ComfyUI/"
+  rm -rf "$tmp"
+  COMFY_VER=$(PREFIX="$PREFIX" COMFY_REF="$COMFY_REF" "$PREFIX/venv/bin/python" - <<'PY'
+import os, pathlib, re, sys
+p = pathlib.Path(os.environ["PREFIX"]) / "ComfyUI" / "comfyui_version.py"
+m = re.search(r"__version__\s*=\s*['\"]([^'\"]+)", p.read_text())
+ver = m.group(1) if m else ""
+parts = []
+for part in ver.split("."):
+    num = "".join(ch for ch in part if ch.isdigit())
+    if not num:
+        break
+    parts.append(int(num))
+if tuple(parts) < (0, 42, 5):
+    sys.exit(f"[install] FATAL ComfyUI {ver or 'missing'} is older than 0.42.5")
+print(ver)
+PY
+)
+  rc=0
+fi
+if [ "$rc" != 0 ] || [ -z "${COMFY_VER:-}" ]; then echo "[install] FATAL ComfyUI ${COMFY_VER:-missing} is older than 0.42.5"; exit 1; fi
+echo "[install] ComfyUI ${COMFY_VER}"
 retry $PIP -r "$PREFIX/ComfyUI/requirements.txt"
 retry $PIP hf_transfer huggingface_hub websocket-client opencv-python-headless triton
 grep -vE '^\s*(#|$)' "$HERE/custom_nodes.txt" | while read -r url pin dir; do
@@ -80,6 +144,18 @@ else
   echo "[install] WARN nvcc not found: skipping SageAttention (SDPA fallback)"
 fi
 cp "$HERE/extra_model_paths.yaml" "$PREFIX/ComfyUI/extra_model_paths.yaml"
+# GJ V2: exact LoRA stack. Stock LoraLoader is not used for the default H3 render.
+rm -rf "$PREFIX/ComfyUI/custom_nodes/h3_exact_lora"
+cp -a "$HERE/custom_nodes/h3_exact_lora" "$PREFIX/ComfyUI/custom_nodes/h3_exact_lora"
+# Repo root follows GJ_HOME / FARQUAD_HOME when that clone holds the post script, else this file's checkout.
+if [ -n "${GJ_HOME:-}" ] && [ -f "${GJ_HOME}/polish/pod/post_gjv2.py" ]; then
+  repo="${GJ_HOME}"
+elif [ -n "${FARQUAD_HOME:-}" ] && [ -f "${FARQUAD_HOME}/polish/pod/post_gjv2.py" ]; then
+  repo="${FARQUAD_HOME}"
+else
+  repo=$(cd "$HERE/../.." && pwd)
+fi
+cp -a "$repo/polish/pod/post_gjv2.py" "$PREFIX/post_gjv2.py"
 "$PREFIX/venv/bin/python" -c "import torch; print('[install] torch', torch.__version__, 'cuda', torch.version.cuda)"
 touch "$PREFIX/.install-ok-$COMFY_REF-$TORCH_VER"
 echo "[install] done -> $PREFIX"

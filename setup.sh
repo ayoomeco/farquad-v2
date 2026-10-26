@@ -1,10 +1,38 @@
 #!/usr/bin/env bash
-# Farquad box setup (run once after every File block is written under $FARQUAD_HOME).
-# Makes a venv with the box-side Python deps, downloads the CPU models (sha256-pinned), makes the work folders,
-# then runs a free import + dry test. No GPU, no spend, no keys needed.
+# GJ V2 box setup. Works from any clone directory.
+# Root: $GJ_HOME, else $FARQUAD_HOME, else this script's own directory.
+# Creates a venv, downloads the CPU models (sha256-pinned), then runs a free import + dry test.
+# No GPU, no pod, no spend, no keys.
 set -euo pipefail
-FH="${FARQUAD_HOME:-$HOME/farquad}"; export FARQUAD_HOME="$FH"
-python3 -c 'import sys; assert sys.version_info>=(3,11), "Farquad needs Python 3.11+ (tomllib)"'
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+resolve_root() {
+  local p="$1"
+  case "$p" in
+    "~") p="$HOME" ;;
+    "~/"*) p="$HOME/${p:2}" ;;
+  esac
+  case "$p" in
+    /*) ;;
+    *) p="$(pwd)/$p" ;;
+  esac
+  mkdir -p "$p"
+  (cd "$p" && pwd)
+}
+if [ -n "${GJ_HOME:-}" ]; then
+  FH="$(resolve_root "$GJ_HOME")"
+elif [ -n "${FARQUAD_HOME:-}" ]; then
+  FH="$(resolve_root "$FARQUAD_HOME")"
+else
+  FH="$_SCRIPT_DIR"
+fi
+export GJ_HOME="$FH"
+export FARQUAD_HOME="$FH"
+if [ "${GJ_SETUP_RESOLVE_ONLY:-}" = 1 ]; then
+  echo "GJ_HOME=$GJ_HOME"
+  echo "FARQUAD_HOME=$FARQUAD_HOME"
+  exit 0
+fi
+python3 -c 'import sys; assert sys.version_info>=(3,11), "GJ V2 needs Python 3.11+ (tomllib)"'
 for b in ffmpeg ffprobe curl; do command -v $b >/dev/null || { echo "missing $b (e.g. apt-get install -y ffmpeg curl)"; exit 1; }; done
 mkdir -p "$FH"/{models,plan/graphs,engine/data/bakeoff/clips}
 [ -d "$FH/venv" ] || python3 -m venv "$FH/venv"
@@ -28,4 +56,4 @@ python -c "import sys; sys.path.insert(0,'$FH/lib'); import fx, qc_v5b3, graphs_
 DRYCHECK=1 DSR_RUN=/tmp python driver_v5b3.py
 DRY=1 DRY_STATE='{"pods":[],"bal":10}' python idle_watchdog.py
 (cd "$FH/engine" && python -c "import sys; sys.path.insert(0,'scripts'); sys.argv=['x']; import phase1_bakeoff; print('engine import ok')")
-echo "FARQUAD_SETUP_OK  (activate with: . $FH/venv/bin/activate)"
+echo "GJ_V2_SETUP_OK FARQUAD_SETUP_OK  (activate with: . $FH/venv/bin/activate)"

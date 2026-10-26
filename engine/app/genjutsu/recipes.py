@@ -7,11 +7,11 @@ GPU profiles (GPU_PROFILES) change speed patches / file choice only (never the r
     '5090'    -> NVFP4 pruned H3 trunk + comfy-kitchen INT8 attention + KJ chunked FFN; Veda / VSA allowed
     'pro6000' -> same, no chunking (96 GB)
     'omen'    -> the owner's RTX 2060 12GB (Turing): w4a8 H3, PDD 4 steps, <=0.4 MP, no Veda / sol-attn / kitchen attention
-H3 options (Phase 1 review, Oct 7 2026): accel = base20 | turbo4 (draft default) | turbo8 | pdd4 | pdd8 (PDD-Acc node pack) |
+H3 options (GJ V2 default is turbo8, lightx2v 8-step v1.1 at 0.8, shift 6/3): accel = base20 | turbo4 (opt-in only) | turbo8 | pdd4 | pdd8 (PDD-Acc node pack) |
 hyperflow8; vae = standard | light | x2; veda = True (sm120 only); vsa = True (Ref2VA VSA, experimental); motion reference
 video resampled to 544 short edge (384 drafts) via ShotSpec.motion_ref_short_edge."""
 from __future__ import annotations
-import math
+import json, math
 from dataclasses import dataclass, field
 from .graph import Graph, GraphError, is_link, validate
 from .shotspec import ShotSpec
@@ -75,8 +75,8 @@ H3_NVFP4_UNET = 'minimax_h3_ref2va_pruned_nvfp4.safetensors'            # lilche
 # trained block-boundary sigmas, supports nfe 4/6 regrouping officially, refuses off-grid sigmas and checks trunk pairing.
 PDD_ACC_FILE = 'minimax_h3_ref2va_pdd_acc_8step_comfyui.safetensors'
 PDD_FILE_PATTERNS = ('pdd', 'acc-8step', 'acc_8step', 'acc-4step')
-TURBO4_LORA = 'minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors'     # lightx2v Ref2V Turbo v0.1 (544p, shifts 12/3)
-TURBO8_LORA = 'minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors'  # lightx2v Ref2V Turbo 8-step v1.0 (768p)
+TURBO4_LORA = 'minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors'     # opt-in only; not the GJ V2 default
+TURBO8_LORA = 'minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors'  # lightx2v 8-step v1.1, the one speed LoRA
 HYPERFLOW_PRUNED = 'custom_node_hyperflow_8step_v1.0_comfyui_pruned.safetensors'
 HYPERFLOW_FULL = 'custom_node_hyperflow_8step_v1.0_comfyui.safetensors'
 H3_FULL_UNET = 'minimax_h3_ref2va_int8_convrot.safetensors'
@@ -90,17 +90,17 @@ MOTION_REF_EDGE = {'draft': 384, 'final': 544}          # short edge of referenc
 # accel id -> sampling recipe. CFG is always 1 in these templates (BasicGuider). shift = (video, audio) via MiniMaxH3SigmaShift.
 H3_ACCEL = {
     'base20':     {'steps': 20, 'lora': None, 'sampler': 'res_multistep', 'label': 'base 20-step (template default)'},
-    'turbo4':     {'steps': 4, 'lora': TURBO4_LORA, 'sampler': 'euler', 'shift': (12.0, 3.0),
-                   'label': 'lightx2v Turbo Ref2V 4-step v0.1 (544p-trained, shift 12/3, euler, CFG 1)'},
-    'turbo8':     {'steps': 8, 'lora': TURBO8_LORA, 'sampler': 'euler', 'shift': (12.0, 3.0),
-                   'label': 'lightx2v Turbo Ref2V 8-step v1.0 768p (shift 12/3, euler, CFG 1)'},
+    'turbo4':     {'steps': 4, 'lora': TURBO4_LORA, 'lora_strength': 1.0, 'sampler': 'euler', 'shift': (12.0, 3.0),
+                   'label': 'opt-in lightx2v Turbo Ref2V 4-step v0.1 (not the GJ V2 default)'},
+    'turbo8':     {'steps': 8, 'lora': TURBO8_LORA, 'lora_strength': 0.8, 'sampler': 'euler', 'shift': (6.0, 3.0),
+                   'label': 'lightx2v Turbo Ref2V 8-step v1.1 at 0.8 (shift 6/3, euler, CFG 1)'},
     'pdd4':       {'steps': 4, 'lora': None, 'pdd': '4', 'sampler': 'euler', 'shift': (12.0, 3.0),
                    'label': 'PDD-Acc nfe 4 via MiniMaxH3PDDAccApply (official regrouping; draft)'},
     'pdd8':       {'steps': 8, 'lora': None, 'pdd': '8', 'sampler': 'euler', 'shift': (12.0, 3.0),
                    'label': 'PDD-Acc nfe 8 via MiniMaxH3PDDAccApply (final candidate)'},
     'hyperflow8': {'steps': 8, 'lora': None, 'sampler': 'euler', 'hyperflow': True, 'label': 'HyperFlow 8-step (ApplyHyperFlow sigmas)'},
 }
-DEFAULT_ACCEL = {'draft': 'turbo4', 'final': 'base20'}   # final flips to the ladder/bake-off winner via [genjutsu.h3] final_accel
+DEFAULT_ACCEL = {'draft': 'turbo8', 'final': 'turbo8'}   # GJ V2: lightx2v 8-step v1.1 at 0.8, shift 6/3
 DEFAULT_VAE = {'draft': 'light', 'final': 'standard'}   # 'standard' | 'light' (LynnReal, faster decode) | 'x2' (X2 Detail, 2x out)
 
 # GPU profiles change speed patches / file choice only, never the requested mode.
@@ -214,13 +214,27 @@ def _h3_common(g: Graph, spec: ShotSpec, tier: str, gpu: str, prompt: str, secon
     if trunk == H3_NVFP4_UNET and not prof.get('blackwell'):
         raise GraphError(f'NVFP4 trunk needs a Blackwell GPU (5090 / PRO 6000), not {gpu!r}')
     g.set(unet, 'unet_name', trunk)
-    # ---- turbo LoRA (template switch) / steps
+    # ---- speed LoRA. GJ V2 never uses the stock LoraLoader: chained bypass loaders keep only the last
+    # LoRA and merge adaLN lossily. One H3ExactLoraStack plus H3LoadReport, or the render aborts.
     use_lora = bool(a['lora'])
-    g.set('146', 'value', use_lora)                      # template switch: LoRA branch vs plain base
-    if use_lora:
-        g.set('145', 'lora_name', a['lora'])
+    if '146' in g.nodes:
+        g.set('146', 'value', False)
     g.set('143', 'value', a['steps']).set('144', 'value', a['steps'])
-    collapse_switch(g, '141', use_lora); collapse_switch(g, '142', use_lora)
+    if '141' in g.nodes:
+        collapse_switch(g, '141', False)
+    if '142' in g.nodes:
+        collapse_switch(g, '142', False)
+    if use_lora:
+        name, strength = a['lora'], float(a.get('lora_strength', 1.0))
+        expect = {name: [208, 0]} if name == TURBO8_LORA else {}
+        require = json.dumps({'max_lossy_merges': 0, 'no_load_warnings': True, 'expect': expect,
+                              'strengths': {name: strength}, 'abort': True})
+        exact = insert_after(g, unet, 'H3ExactLoraStack', {
+            'lora_1': name, 'strength_1': strength,
+            'lora_2': 'None', 'strength_2': 0.0, 'lora_3': 'None', 'strength_3': 0.0,
+            'lora_4': 'None', 'strength_4': 0.0, 'lora_5': 'None', 'strength_5': 0.0,
+        }, title='H3 exact LoRA (one speed LoRA)')
+        insert_after(g, exact, 'H3LoadReport', {'tag': 'gj-v2', 'require': require}, title='H3 load check')
     g.set('123', 'sampler_name', a['sampler'])
     g.set('132', 'value', float(seconds))                # duration -> frames snap inside the template's math node
     g.set('115', 'aspect_ratio', _aspect_label(spec))
@@ -349,8 +363,14 @@ def h3_ref2va(spec: ShotSpec, files: dict, tier: str = 'draft', gpu: str = '5090
         from .. import config
         pack = config.characters().get(spec.character_pack or '') or {}
         ns, nst, nbg = (len(list(files.get(k) or [])) for k in ('subject', 'style', 'background'))
+        roles = []
+        for fn in imgs:
+            for role in ('face', 'body', 'outfit'):
+                if fn.lower().endswith(f'_{role}.png') or f'_{role}.' in fn.lower():
+                    roles.append(role)
+                    break
         prompt = context_ir(spec, ns or len(imgs), secs, description=description, identity_lock=pack.get('identity_lock'),
-                            n_style=nst if ns else 0, n_background=nbg if ns else 0)
+                            n_style=nst if ns else 0, n_background=nbg if ns else 0, ref_roles=roles or None)
     else:
         who = spec.prompt or f'the {spec.subject if spec.subject != "any" else "subject"} from the reference image'
         if spec.mode == 'restyle':

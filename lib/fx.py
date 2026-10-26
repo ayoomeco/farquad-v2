@@ -1,5 +1,7 @@
-import numpy as np, cv2, os
-FH=os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad'))
+import numpy as np, cv2, os, pathlib, sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from home import gj_home
+FH=gj_home()
 YU=FH+'/models/face_detection_yunet_2023mar.onnx'; SF=FH+'/models/face_recognition_sface_2021dec.onnx'
 det=cv2.FaceDetectorYN.create(YU,'',(320,320),0.6); rec=cv2.FaceRecognizerSF.create(SF,'')
 def unit(v): return v/(np.linalg.norm(v)+1e-9)

@@ -1,5 +1,8 @@
 """list | terminate <id...> | terminate-all-run  : RunPod pods (no keys printed)."""
-import sys, os; sys.path.insert(0, os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad')) + '/engine')
+import sys, os, pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from home import gj_home
+sys.path.insert(0, gj_home() + '/engine')
 from app.providers.runpod_pod import RunPodClient
 c = RunPodClient()
 def ls():

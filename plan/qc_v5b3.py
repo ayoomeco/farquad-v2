@@ -2,8 +2,10 @@
 popin(): flags faces/people appearing or vanishing vs source, identity flips between frames, and
   temporal spikes (render frame-to-frame change >> source's) inside the lead area.
 Returns a dict with pop_ok. Thresholds via env (POP_MAX, POP_SPIKE, POP_HOLD)."""
-import os, numpy as np, cv2, sys
-sys.path.insert(0,os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad'))+'/lib'); from fx import faces
+import os, numpy as np, cv2, sys, pathlib
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
+sys.path.insert(0, gj_home()+'/lib'); from fx import faces
 POP_MAX=int(os.environ.get('POP_MAX','2')); SPIKE=float(os.environ.get('POP_SPIKE','3.0'))
 def popin(O,S,mask_fn=lambda j:None,step=2):
     n=min(len(O),len(S)); pops=0; flips=0; spikes=0; prev=None; ev=[]
