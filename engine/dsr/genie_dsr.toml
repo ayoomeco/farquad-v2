@@ -116,13 +116,13 @@ license_holder = "<your name or company>"
 license_date = "2026-10-07"
 license_proof = "licenses/<your authorization file>"
 license_email = "<where your authorization came from>"
-comfyui_min_version = "0.30.0"
+comfyui_min_version = "0.42.5"
 templates = ["T2V", "I2V", "R2V"]   # ComfyUI native templates, verified to exist (ComfyUI >= 0.30.0; our Salad image is comfy 0.7.0, so it would need an upgrade)
 checkpoint_fl2va = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"    # 20.97 GB (Comfy template default). also: pruned_fp8_scaled 20.96 GB, pruned_w6a8 15.98 GB, pruned_bf16 40.23 GB
 checkpoint_ref2va = "minimax_h3_ref2va_pruned_int8_convrot.safetensors"  # 20.97 GB (Comfy R2V template default)
 official_ui_template = "config/workflows/minimax_h3_r2v.official-ui-template.json"  # Comfy-Org/workflow_templates video_minimax_h3_r2v.json (UI format; res_multistep/simple, 20 steps, shift 12 baked into model)
 workflow_template = "config/workflows/minimax_h3_r2v.UNVERIFIED.json"
-max_ref_images = 9
+max_ref_images = 9                 # model cap. The swap default sends separate role images (face, body only for full-body, outfit last), not a 9-piece sheet.
 max_ref_videos = 3
 max_ref_audios = 3
 height = 768
@@ -175,6 +175,9 @@ tie_margin = 0.05                    # LLM tiebreak only when the top two are wi
 [genjutsu.h3]
 draft_accel = "turbo4"               # lightx2v Ref2V Turbo 4-step (Phase-1 review); pdd4 via the PDD-Acc pack is the A/B
 final_accel = "base20"               # flips to the L0-L5 ladder winner (pdd8 / turbo8 / ...) if it passes QC
+# The approved Farquad swap default is plan/graphs_v5b.py (A08): 8 steps, euler/simple, shift 6/3,
+# realism 0.7, swap v1.5 at 1.0, lightx2v turbo 8-step v1.1 at 0.8, Sage on, ComfyUI >= 0.42.5.
+# This ladder is a separate bakeoff and is not that default.
 draft_vae = "light"                  # LynnReal light decoder
 final_vae = "standard"               # "x2" = X2 Detail VAE (2x decode) once Phase 1 checks it
 veda = false                         # Veda sparse attention toggle (5090 / PRO 6000 only; 3x faster/step in Phase 1)
@@ -595,12 +598,12 @@ grain = false
 skin_finish = false
 stall_s = 600                       # only auto-stop: no ComfyUI progress for 10 min
 drift_guard = false                 # opt-in; killed healthy renders in round 5
-min_refs = 3                        # fail closed below this
+min_refs = 2                        # face + outfit is a valid A08 pair; body is added only for full-body shots. Fail closed below this.
 mask_grow_px = 0                    # DEFAULT tight person mask + feather (the owner Oct 17: outline showed exactly at the grown border). Option C Kijai stock = 10 (+Blockify 32), opt-in only via JUTSU_MASK_GROW=10
 mask_feather_px = 3                 # soft edge on the tight mask (2-4 px)
 
 [h3swap]
-default = "h3swap_akatz"            # A: akatz V1.5 @1.0 + turbo v4 step600 EMA @1.0 + fal Realism People @0.7 (prefix r34l1sm), 8 steps, CFG 1, er_sde/normal, 24 fps, 17n+5. (model-card fl2v turbo8 768p = toggle turbo="card")
+default = "h3swap_akatz"            # A08 swap default (graphs_v5b): realism 0.7, swap v1.5 @1.0, lightx2v turbo 8-step v1.1 @0.8, no likeness LoRA unless LIKENESS_LORA is set, 8 steps, euler/simple, shift 6/3, seed 42, ref_image_size match, Sage on, ComfyUI >= 0.42.5, H3ExactLoraStack + H3LoadReport.
 option_b = "h3swap_alis"            # B: Alissonerdx char swap 1.0 + head swap 0.5, AddGuide frame_idx 0, body_swap: prompt
 option_c = "wan22_animate_replace"  # C: Wan 2.2 Animate replace; tight mask (grow 0, feather 3) by default, Kijai stock grow 10 + blockify 32 via JUTSU_MASK_GROW=10
 frames = "17n+5"                    # H3 grid at 24 fps (124 = 5.17 s)

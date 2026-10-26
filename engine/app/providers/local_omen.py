@@ -43,7 +43,7 @@ class LocalOmenProvider(Provider):
     def plan(self) -> dict:
         c = self.cfg
         return {'status': 'PLAN ONLY (runs on the owner\'s PC when he starts it)', 'host': c.get('host'), 'gpu': c.get('gpu'),
-                'install': [f'ComfyUI portable >= v0.39 -> {c.get("comfy_dir", "E:/ComfyUI")}',
+                'install': [f'ComfyUI portable >= v0.42.5 -> {c.get("comfy_dir", "E:/ComfyUI")}',
                             f'models -> {c.get("models_dir", "E:/models")} (pagefile on E:, 32-48 GB)',
                             'download manifest bundle "omen" (python worker/bootstrap_volume.py --group omen --root E:/)'],
                 'launch': 'python main.py ' + ' '.join(LAUNCH_FLAGS), 'optional_flags': OPTIONAL_FLAGS,

@@ -39,6 +39,14 @@ def context_ir(spec: ShotSpec, n_pictures: int, seconds: float, description: str
         if spec.mode == 'character_swap':
             lines.append('<Video 1> is the source video for the editing task. The person in <Video 1> is replaced by <Subject 1>; '
                          'none of their identity is kept.')
+            if n >= 3:
+                lines.append('image 1 is the face, image 2 is the body, image 3 is the outfit.')
+            elif n == 2:
+                lines.append('image 1 is the face, image 2 is the outfit.')
+            else:
+                lines.append('image 1 is the face.')
+            lines.append("match the source's mouth and expression exactly.")
+            lines.append('keep any objects already in the scene; add nothing.')
         else:
             lines.append('<Video 1> is the source video that provides the whole-video motion: body pose, head movement, gaze, mouth '
                          'movement, hand movement, camera framing and timing. Only its motion is used; none of its people\'s identity is kept.')

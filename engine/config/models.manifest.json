@@ -8,10 +8,10 @@
   ]
  },
  "bundle_bytes": {
-  "gjfast": 41447520855
+  "gjfast": 42468753719
  },
  "group_bytes": {
-  "gjfast": 41447520855
+  "gjfast": 42468753719
  },
  "models": [
   {
@@ -110,7 +110,6 @@
    "bundles": [
     "bench_v2",
     "better_lite",
-    "gjfast",
     "h3_swaplora",
     "kenny",
     "r3combo",
@@ -118,7 +117,7 @@
     "universal",
     "gjmesh"
    ],
-   "note": "Oct 13 better-build rung"
+   "note": "Oct 13 better-build rung. The A08 gjfast bundle uses realism, swap v1.5, and turbo 8-step v1.1."
   },
   {
    "id": "turbo_v4",
@@ -132,13 +131,12 @@
     "bench_v2",
     "better_lite",
     "drake5",
-    "gjfast",
     "h3swap",
     "h3swap_min",
     "h3mesh",
     "gjmesh"
    ],
-   "note": "Oct 13 better-build rung"
+   "note": "Oct 13 better-build rung. The A08 gjfast bundle uses realism, swap v1.5, and turbo 8-step v1.1."
   },
   {
    "id": "fal_realism_people",
@@ -211,6 +209,21 @@
     "gjfast"
    ],
    "note": "bench v2 slim"
+  },
+  {
+   "id": "lightx2v_turbo_8step_v11",
+   "repo": "lightx2v/Minimax-h3-Turbo",
+   "file": "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+   "size_bytes": 1956193000,
+   "sha256": "e56863a7524e0300729cbb7b64cc8b548d90698c1abbf7d83898b0122fbe1e81",
+   "target": "models/loras/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+   "url": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+   "bundles": [
+    "gjfast",
+    "h3swap",
+    "h3swap_min"
+   ],
+   "note": "A08 default turbo at strength 0.8 (8 steps, shift 6 video / 3 audio)."
   }
  ]
 }
