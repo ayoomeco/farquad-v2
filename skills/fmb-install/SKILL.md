@@ -16,7 +16,7 @@ export FMB_HOME=/workspace/fmb-v1
 if [ -d "$FMB_HOME/.git" ]; then git -C "$FMB_HOME" pull --ff-only; else git clone -b fmb-v1 https://github.com/ayoomeco/farquad-v2 "$FMB_HOME"; fi
 git -C "$FMB_HOME" log -1 --format='%h %s'
 ```
-Tell the owner the short commit id. On failure, report the exact error and stop.
+Tell the owner the short commit id. On failure, report the exact error and stop. The patch notes, knowledge base and rules are in `$FMB_HOME/docs/`.
 
 ## 2. Setup
 Needs Python 3.11+, ffmpeg, ffprobe and curl (`apt-get install -y ffmpeg curl python3-venv` if missing), plus about 2 GB free (check `df -h /` first; never delete the owner's files to make room).

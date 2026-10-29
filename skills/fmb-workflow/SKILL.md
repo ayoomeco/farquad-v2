@@ -7,7 +7,7 @@ description: >-
 ---
 # The job, end to end
 
-Read RULES.md and KNOWLEDGE_BASE.md first. Code is in `$FMB_HOME` (see `fmb-install`). One job = one `jobs/<job>.json`: copy `example_job.json` and set the characters, clips, shots, caps, rate, `budget.start`/`total` and `ledger_roots`. Export `FMB_JOB` and `FMB_DATA`.
+Read RULES.md and KNOWLEDGE_BASE.md (in `$FMB_HOME/docs` or the repo root) first. Code is in `$FMB_HOME` (see `fmb-install`). One job = one `jobs/<job>.json`: copy `example_job.json` and set the characters, clips, shots, caps, rate, `budget.start`/`total` and `ledger_roots`. Export `FMB_JOB` and `FMB_DATA`.
 
 ## Baseline (owner-approved; any change goes in the what's-different table and needs a yes)
 | Setting | Value |
