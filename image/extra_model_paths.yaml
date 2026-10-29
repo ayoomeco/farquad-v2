@@ -1,0 +1,11 @@
+# Weights are fetched at boot onto the pod's container disk (/workspace/models), never baked into the image.
+gj:
+  base_path: /workspace/models
+  is_default: true
+  diffusion_models: diffusion_models
+  checkpoints: checkpoints
+  text_encoders: text_encoders
+  clip: text_encoders
+  vae: vae
+  loras: loras
+  upscale_models: upscale_models

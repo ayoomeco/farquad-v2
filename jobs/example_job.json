@@ -1,0 +1,73 @@
+{
+  "_comment": "Neutral worked example. Copy per job, point FMB_JOB at it. Paths: absolute, ~, $FMB_DATA, or relative to this file. demo/make_demo.py creates every $FMB_DATA/demo file so the dry runs build with no missing inputs.",
+  "job": "example",
+  "gpu": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "rate": 2.49,
+  "caps": {"one_person": 1.25, "two_person_contact": 1.25, "group": 1.50},
+  "budget": {"total": 30.0, "start": "2026-10-28T00:00:00"},
+  "ledger_roots": ["$FMB_DATA/run"],
+  "seed": 77,
+  "rerolls": [78, 79],
+  "ref_long_side": 1536,
+  "time_stop_multiplier": 2.0,
+  "characters": {
+    "Ava":  {"human": true,  "look": "a woman in her 30s with shoulder-length dark curly hair, warm brown skin, slim build, her own hair only, no hat, no glasses",
+             "outfit": "a mustard knit sweater, dark straight jeans and white sneakers",
+             "refs": {"head": "$FMB_DATA/demo/refs/ava_head.png", "body": "$FMB_DATA/demo/refs/ava_body.png"}},
+    "Rex":  {"human": true,  "look": "a broad-shouldered man in his 40s with a shaved head and a short grey beard, light skin",
+             "outfit": "a black sleeveless tank top, a thin silver chain and red jeans",
+             "refs": {"head": "$FMB_DATA/demo/refs/rex_head.png", "body": "$FMB_DATA/demo/refs/rex_body.png"}},
+    "Milo": {"human": true,  "look": "a tall man in his 20s with short light-brown hair pushed back and a short beard",
+             "outfit": "a gold sleeveless basketball jersey with purple trim and the number 7 front and back, gold shorts",
+             "refs": {"head": "$FMB_DATA/demo/refs/milo_head.png", "body": "$FMB_DATA/demo/refs/milo_body.png", "back": "$FMB_DATA/demo/refs/milo_back.png"}},
+    "Pip":  {"human": false, "look": "an orange felt puppet with a round head, ping-pong-ball eyes and a wide mouth",
+             "outfit": "a blue-and-white horizontally striped sweater",
+             "refs": {"head": "$FMB_DATA/demo/refs/pip_head.png", "body": "$FMB_DATA/demo/refs/pip_body.png"}}
+  },
+  "clips": {
+    "one_person": {
+      "name": "one_person_swap", "W": 960, "H": 768, "fps": 30, "frames_out": 201, "assembly": "chain",
+      "audio": {"src": "$FMB_DATA/demo/src/one_person.mp4", "start": 0.0},
+      "scene": "The painted backdrop, the small logo at the top of the frame, the studio lighting, the framing and every camera move",
+      "shots": [
+        {"piece": "S01_A", "driver": "$FMB_DATA/demo/drivers/one_person_A.mp4", "frames": 141, "est": 340, "guide": null,
+         "subjects": [{"source": "the person standing alone in the centre of the frame wearing a grey suit jacket over a black turtleneck", "becomes": "Ava", "facing": "front"}]},
+        {"piece": "S01_B", "driver": "$FMB_DATA/demo/drivers/one_person_B.mp4", "frames": 82, "est": 220, "guide": ["S01_A", 119],
+         "subjects": [{"source": "the person standing alone in the centre of the frame wearing a grey suit jacket over a black turtleneck", "becomes": "Ava", "facing": "front"}]}
+      ]},
+    "two_person_contact": {
+      "name": "two_person_contact", "W": 1120, "H": 640, "fps": 25, "frames_out": 125, "assembly": "shots",
+      "audio": {"src": "$FMB_DATA/demo/src/two_person_contact.mp4", "start": 0.0},
+      "scene": "The dusty courtyard, the harsh sunlight, the shadows and the camera",
+      "shots": [
+        {"piece": "S01", "driver": "$FMB_DATA/demo/drivers/two_person_contact_S01.mp4", "frames": 125, "est": 460, "guide": null,
+         "subjects": [{"source": "the person on the right in a grey striped shirt, facing the camera, who steps in and shoves the other person with both hands", "becomes": "Rex", "facing": "front", "side": "right"},
+                      {"source": "the person on the left in a yellow shirt with their back to the camera, who gets shoved", "becomes": "Milo", "facing": "back", "side": "left"}],
+         "action": "Rex's hands make real contact with Milo's shoulders on the shove, and Milo's whole body reacts; both keep both arms and hands visible exactly as in the source."}
+      ]},
+    "group": {
+      "name": "group_shot", "W": 1024, "H": 768, "fps": 29.97, "frames_out": 150, "assembly": "shots",
+      "audio": {"src": "$FMB_DATA/demo/src/group.mp4", "start": 0.0},
+      "scene": "The living room, the window light, the on-screen captions and the camera",
+      "shots": [
+        {"piece": "S01", "driver": "$FMB_DATA/demo/drivers/group_S01.mp4", "frames": 90, "est": 400, "trim_to": 90, "guide": null,
+         "subjects": [{"source": "the person on the left in a white T-shirt", "becomes": "Ava", "side": "left"},
+                      {"source": "the person in the centre in a denim jacket", "becomes": "Pip", "side": "center"},
+                      {"source": "the person on the right in a black hoodie", "becomes": "Rex", "side": "right"}],
+         "extras": "Any other people in the background"},
+        {"piece": "S02", "driver": "$FMB_DATA/demo/drivers/group_S02.mp4", "frames": 60, "est": 200, "trim_to": 60, "guide": null,
+         "subjects": [{"source": "the person in the white T-shirt alone in the frame", "becomes": "Ava"}]}
+      ]}
+  },
+  "ref_job": {
+    "gpu": "NVIDIA RTX A6000", "rate": 0.59, "cap": 1.00, "upscale": true,
+    "characters": {
+      "Ava": {"photos": ["$FMB_DATA/demo/photos/ava_photo1.png"],
+              "shots": [{"shot": "head_front", "kind": "head", "stage": "white"},
+                        {"shot": "body_front", "kind": "body", "stage": "white"}]},
+      "Milo": {"photos": ["$FMB_DATA/demo/photos/milo_photo1.png"],
+              "shots": [{"shot": "body_front", "kind": "body", "stage": "white"},
+                        {"shot": "body_back", "kind": "back", "from": "t_milo_body_front_white"}]}
+    }
+  }
+}

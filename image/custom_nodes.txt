@@ -1,0 +1,9 @@
+# GJ fastboot (ComfyUI v0.42.5) custom nodes: <git url> <full commit>. Pinned Oct 27 2026 to what today's A08/H3 pods ran.
+# Qwen-Image 2.1, Krea 2, MiniMax H3 (Ref2VA) and SeedVR2 are native in ComfyUI 0.42.5 (no pack needed).
+# KJNodes: today's pods cloned HEAD unpinned; this is that HEAD (committed 2026-10-27 03:31 PT, before the 13:54 PT launch).
+https://github.com/kijai/ComfyUI-KJNodes                 2371136d2fa6fd0914e514cd99b36dabe5db9adf
+# VideoHelperSuite (same pin as the 0.39.1 worker; HEAD unchanged since)
+https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite  4d907bee61e92c2e65af3bd6383a4e4d356126d1
+# Krea 2 edit helper nodes (used by the Krea 2 Identity Edit V2 graphs on Modal)
+https://github.com/lbouaraba/comfyui-krea2edit           13ef60f20828949becada815d3cbc371eb5ccaab
+# h3_exact_lora (H3ExactLoraStack / H3LoadReport, injects 'h3_exact_stack') is vendored in fastboot/nodes/, not cloned.

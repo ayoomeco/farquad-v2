@@ -1,0 +1,162 @@
+{
+ "version": 1,
+ "note": "Fire Marshal Bill subset: H3 video, SeedVR2 image upscale, Qwen 2.1 whites, Qwen 2511 edits. Files pulled from Hugging Face repo@revision, sha256-checked at boot.",
+ "sets": {
+  "h3_a08": {
+   "files": [
+    {
+     "repo": "WarmBloodAban/Minimax-h3_Singularity",
+     "revision": "1259cf16cd0b655ba691a32fb46a409142762972",
+     "path": "Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
+     "dest": "diffusion_models/Minimax-h3_Singularity_ref2va_Pruned_v1.3_int8.safetensors",
+     "size": 20967647456,
+     "sha256": "412a7b126595a958964193f3b42513d7cf2df4196ef04223a0f05e3622949cce"
+    },
+    {
+     "repo": "Comfy-Org/MiniMax-H3",
+     "revision": "e5eb578a89295337b8ff433a035929ce0279e0b6",
+     "path": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+     "dest": "text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+     "size": 15687142551,
+     "sha256": "35a88d51044231fe332301d7a62aa81e3f2cba62febeb446e2c1e3e0ef76f2c6"
+    },
+    {
+     "repo": "Comfy-Org/MiniMax-H3",
+     "revision": "e5eb578a89295337b8ff433a035929ce0279e0b6",
+     "path": "vae/minimax_h3_video_vae_fp16.safetensors",
+     "dest": "vae/minimax_h3_video_vae_fp16.safetensors",
+     "size": 5207808496,
+     "sha256": "7c1f131492e7eddacaac9069a61b81bdd39de5cc96561e677c5eab1cdce5e522"
+    },
+    {
+     "repo": "Comfy-Org/MiniMax-H3",
+     "revision": "e5eb578a89295337b8ff433a035929ce0279e0b6",
+     "path": "vae/minimax_h3_audio_vae_fp32.safetensors",
+     "dest": "vae/minimax_h3_audio_vae_fp32.safetensors",
+     "size": 605254808,
+     "sha256": "8e505d95dd1561d47abd43d4238fd40d9bb1ae9e147ed0a4cba778d76ae4db48"
+    },
+    {
+     "repo": "fal/MiniMax-H3-Realism-People-LoRA",
+     "revision": "039cc8579d7aa357a882d7f4111b25da4f72dccc",
+     "path": "h3-realism-people-t2v-i2v-r2v.safetensors",
+     "dest": "loras/h3-realism-people-t2v-i2v-r2v.safetensors",
+     "size": 131229656,
+     "sha256": "acc529601d2da117fb81179e76c56e488a3beab1171659d305f04fa3655b787e"
+    },
+    {
+     "repo": "akatz-ai/MiniMax-H3-Character-Swap-LoRA",
+     "revision": "96ea3407b230b6f7df71c58c70e31df96bd7e533",
+     "path": "h3_character_swap_v1.5.safetensors",
+     "dest": "loras/h3_character_swap_v1.5.safetensors",
+     "size": 155110792,
+     "sha256": "8f2c3c3eba161df8d0c6099598b4730f641f5ce01e04cd16d2427cff8a35218f"
+    },
+    {
+     "repo": "lightx2v/Minimax-h3-Turbo",
+     "revision": "30f485ed874aa44c8183348ad361c5eabad318da",
+     "path": "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+     "dest": "loras/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+     "size": 1956193000,
+     "sha256": "e56863a7524e0300729cbb7b64cc8b548d90698c1abbf7d83898b0122fbe1e81"
+    }
+   ],
+   "gb": 44.71
+  },
+  "seedvr2": {
+   "files": [
+    {
+     "repo": "Comfy-Org/SeedVR2",
+     "revision": "df48879708206a403d2a61acd55578c2e80fd233",
+     "path": "diffusion_models/seedvr2_7b_fp16.safetensors",
+     "dest": "diffusion_models/seedvr2_7b_fp16.safetensors",
+     "size": 16480583960,
+     "sha256": "2742ca6fee63bc5cc1773f426dd4b07b78cad27f51c9ea5cd42b035e6b592252"
+    },
+    {
+     "repo": "Comfy-Org/SeedVR2",
+     "revision": "df48879708206a403d2a61acd55578c2e80fd233",
+     "path": "vae/seedvr2_ema_vae_fp16.safetensors",
+     "dest": "vae/seedvr2_ema_vae_fp16.safetensors",
+     "size": 501324814,
+     "sha256": "20678548f420d98d26f11442d3528f8b8c94e57ee046ef93dbb7633da8612ca1"
+    }
+   ],
+   "gb": 16.98
+  },
+  "qwen21": {
+   "files": [
+    {
+     "repo": "Comfy-Org/Qwen-Image-2.1",
+     "revision": "0217efd1d9c9452e84f6448903d6e21bfa171ffd",
+     "path": "diffusion_models/qwen_image_2.1_bf16.safetensors",
+     "dest": "diffusion_models/qwen_image_2.1_bf16.safetensors",
+     "size": 14230280616,
+     "sha256": "89f4158d066cc33906a199fca85634f766892dd78f49b6698dabf187ac86c4bc"
+    },
+    {
+     "repo": "Comfy-Org/Qwen-Image-2.1",
+     "revision": "0217efd1d9c9452e84f6448903d6e21bfa171ffd",
+     "path": "text_encoders/qwen3vl_8b_bf16.safetensors",
+     "dest": "text_encoders/qwen3vl_8b_bf16.safetensors",
+     "size": 17534334616,
+     "sha256": "68bdc82bc1b66851162ae656225e7e2068166b603db19bd5d5a3b90eb12669a9"
+    },
+    {
+     "repo": "Comfy-Org/Qwen-Image-2.1",
+     "revision": "0217efd1d9c9452e84f6448903d6e21bfa171ffd",
+     "path": "vae/qwen_image_2.1_vae_bf16.safetensors",
+     "dest": "vae/qwen_image_2.1_vae_bf16.safetensors",
+     "size": 675509688,
+     "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+    },
+    {
+     "repo": "madebyollin/texture-fix-vae-for-qwen-image-2.1",
+     "revision": "9a10df811f183323e4e94d255c18add1924ce340",
+     "path": "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors",
+     "dest": "vae/texture_fix_vae_for_qwen_image_2.1_bf16.safetensors",
+     "size": 675509688,
+     "sha256": "36f56608b02077a50a08ea3dbcdb88351298ceba49948f41f9f87186378e6908"
+    }
+   ],
+   "gb": 33.12
+  },
+  "qwen2511_lite": {
+   "files": [
+    {
+     "repo": "Comfy-Org/Qwen-Image-Edit",
+     "revision": "f68ace85e60b4a02a323e394253731947657b7d2",
+     "path": "split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+     "dest": "diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+     "size": 20533762817,
+     "sha256": "c9fdc158e46d3b61ef75f21ae866ca2fe808bf4a53643120d1c1e87c19280a4e"
+    },
+    {
+     "repo": "Comfy-Org/Qwen-Image",
+     "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+     "path": "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+     "dest": "text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+     "size": 9384670680,
+     "sha256": "cb5636d852a0ea6a9075ab1bef496c0db7aef13c02350571e388aea959c5c0b4"
+    },
+    {
+     "repo": "Comfy-Org/Qwen-Image",
+     "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+     "path": "split_files/vae/qwen_image_vae.safetensors",
+     "dest": "vae/qwen_image_vae.safetensors",
+     "size": 253806246,
+     "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f"
+    },
+    {
+     "repo": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
+     "revision": "e3066224ab74263f4a5b6179cd1a3b0a15577e44",
+     "path": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+     "dest": "loras/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+     "size": 295140688,
+     "sha256": "42426ded4e25fd22879d9e198b857556445ef4ca56e8da3246d0345155bb6765"
+    }
+   ],
+   "gb": 30.47
+  }
+ }
+}
