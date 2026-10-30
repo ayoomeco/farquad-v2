@@ -1,6 +1,8 @@
 # Viral 5b launcher. Cap = argv[1] = the cap the owner approved for THIS job (per job, no fixed default).
-import pty, os, re, sys
-FH=os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad'))
+import pty, os, re, sys, pathlib
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
+FH=gj_home()
 B=FH+'/engine'; R=sys.argv[3]; cap=sys.argv[1]; tag=sys.argv[2]
 # per-job cap files for idle_watchdog.py: CAP.txt = approved cap, B0.txt = RunPod balance before this job spends anything
 os.makedirs(R,exist_ok=True); open(f'{R}/CAP.txt','w').write(str(float(cap)))

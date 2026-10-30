@@ -16,7 +16,8 @@ def _pics(n: int, start: int = 1) -> str:
 
 
 def context_ir(spec: ShotSpec, n_pictures: int, seconds: float, description: str | None = None,
-               identity_lock: str | None = None, music: str | None = None, n_style: int = 0, n_background: int = 0) -> str:
+               identity_lock: str | None = None, music: str | None = None, n_style: int = 0, n_background: int = 0,
+               ref_roles: list[str] | None = None) -> str:
     """Pictures are numbered in upload order: subject pictures first, then style, then background (as h3_ref2va wires them)."""
     n = max(1, int(n_pictures))
     noun = SUBJECT_NOUN.get(spec.subject, 'the subject')
@@ -39,6 +40,11 @@ def context_ir(spec: ShotSpec, n_pictures: int, seconds: float, description: str
         if spec.mode == 'character_swap':
             lines.append('<Video 1> is the source video for the editing task. The person in <Video 1> is replaced by <Subject 1>; '
                          'none of their identity is kept.')
+            if ref_roles:
+                named = ' '.join(f'image {i} {role}' for i, role in enumerate(ref_roles, 1))
+                lines.append(f'Reference roles: {named}. The pictures are separate references, never one combined character sheet.')
+            lines.append("Match the source's mouth and expression exactly.")
+            lines.append('keep any objects already in the scene; add nothing.')
         else:
             lines.append('<Video 1> is the source video that provides the whole-video motion: body pose, head movement, gaze, mouth '
                          'movement, hand movement, camera framing and timing. Only its motion is used; none of its people\'s identity is kept.')

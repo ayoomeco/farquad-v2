@@ -5,7 +5,7 @@
 
 [app]
 name = "Genie Jutsu OS"
-version = "0.3.0"
+version = "GJ V2"
 
 [llm]
 provider = "ollama"
@@ -108,7 +108,7 @@ hardware = "Salad Cloud RTX 5090 32GB, single GPU, ComfyUI repack (ref2va pruned
 salad_org = "your-salad-org"
 salad_project = "default"
 hf_repo = "MiniMaxAI/MiniMax-H3"
-weights_source = "HF Comfy-Org/MiniMax-H3 (checked Oct 7 2026): diffusion_models/ + text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors (15.69 GB) + vae/minimax_h3_video_vae_int8_convrot.safetensors (2.81 GB) + vae/minimax_h3_audio_vae_fp32.safetensors (0.61 GB) + loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors (1.96 GB, optional)"
+weights_source = "HF Comfy-Org/MiniMax-H3 text encoder + VAEs, WarmBloodAban Singularity v1.3 trimmed int8, lightx2v Minimax-h3-Turbo 8-step v1.1 (the only speed LoRA)"
 license = "MiniMax H3 Community License (Aug 2 2026). US use needs a SEPARATE written authorization from MiniMax: get your own and record it in the license_* fields. The original author's authorization does NOT transfer to you."
 license_blocked = false             # unblocked by the Oct 7 2026 authorization
 license_authorized = true
@@ -116,13 +116,14 @@ license_holder = "<your name or company>"
 license_date = "2026-10-07"
 license_proof = "licenses/<your authorization file>"
 license_email = "<where your authorization came from>"
-comfyui_min_version = "0.30.0"
+comfyui_min_version = "0.42.5"
 templates = ["T2V", "I2V", "R2V"]   # ComfyUI native templates, verified to exist (ComfyUI >= 0.30.0; our Salad image is comfy 0.7.0, so it would need an upgrade)
 checkpoint_fl2va = "minimax_h3_fl2va_pruned_int8_convrot.safetensors"    # 20.97 GB (Comfy template default). also: pruned_fp8_scaled 20.96 GB, pruned_w6a8 15.98 GB, pruned_bf16 40.23 GB
 checkpoint_ref2va = "minimax_h3_ref2va_pruned_int8_convrot.safetensors"  # 20.97 GB (Comfy R2V template default)
 official_ui_template = "config/workflows/minimax_h3_r2v.official-ui-template.json"  # Comfy-Org/workflow_templates video_minimax_h3_r2v.json (UI format; res_multistep/simple, 20 steps, shift 12 baked into model)
 workflow_template = "config/workflows/minimax_h3_r2v.UNVERIFIED.json"
-max_ref_images = 9
+max_ref_images = 9                  # model ceiling only. GJ V2 default refs are separate crops (face, body on full-body shots, outfit), never a 9-piece sheet.
+ref_recipe = "separate"
 max_ref_videos = 3
 max_ref_audios = 3
 height = 768
@@ -173,8 +174,8 @@ default_gpu = "5090"
 tie_margin = 0.05                    # LLM tiebreak only when the top two are within this score
 
 [genjutsu.h3]
-draft_accel = "turbo4"               # lightx2v Ref2V Turbo 4-step (Phase-1 review); pdd4 via the PDD-Acc pack is the A/B
-final_accel = "base20"               # flips to the L0-L5 ladder winner (pdd8 / turbo8 / ...) if it passes QC
+draft_accel = "turbo8"               # GJ V2: lightx2v 8-step v1.1 at 0.8, shift 6/3
+final_accel = "turbo8"
 draft_vae = "light"                  # LynnReal light decoder
 final_vae = "standard"               # "x2" = X2 Detail VAE (2x decode) once Phase 1 checks it
 veda = false                         # Veda sparse attention toggle (5090 / PRO 6000 only; 3x faster/step in Phase 1)
@@ -600,7 +601,7 @@ mask_grow_px = 0                    # DEFAULT tight person mask + feather (the o
 mask_feather_px = 3                 # soft edge on the tight mask (2-4 px)
 
 [h3swap]
-default = "h3swap_akatz"            # A: akatz V1.5 @1.0 + turbo v4 step600 EMA @1.0 + fal Realism People @0.7 (prefix r34l1sm), 8 steps, CFG 1, er_sde/normal, 24 fps, 17n+5. (model-card fl2v turbo8 768p = toggle turbo="card")
+default = "h3swap_akatz"            # GJ V2 A08: realism 0.7 + swap v1.5 1.0 + lightx2v 8-step v1.1 0.8, 8 steps, shift 6/3, euler/simple, seed 42. No turbo_v4, no likeness LoRA.
 option_b = "h3swap_alis"            # B: Alissonerdx char swap 1.0 + head swap 0.5, AddGuide frame_idx 0, body_swap: prompt
 option_c = "wan22_animate_replace"  # C: Wan 2.2 Animate replace; tight mask (grow 0, feather 3) by default, Kijai stock grow 10 + blockify 32 via JUTSU_MASK_GROW=10
 frames = "17n+5"                    # H3 grid at 24 fps (124 = 5.17 s)

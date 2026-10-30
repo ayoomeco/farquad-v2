@@ -1,4 +1,5 @@
-# Pinned custom nodes for the jutsu-worker (Oct 7 2026; same set installed on the box's CPU ComfyUI v0.39.1 used for the
+# Pinned custom nodes for the jutsu-worker (GJ V2: ComfyUI 0.42.5 or newer). h3_exact_lora is vendored in
+# custom_nodes/h3_exact_lora and copied by install.sh; it is not a git pin. The box CPU ComfyUI used for the
 # offline UI->API conversion and the object_info snapshot).
 #
 # Two line formats:
@@ -39,12 +40,12 @@ https://github.com/Icyoung/ComfyUI-MiniMaxH3-TeaCache          4cbb50d69c73a19a5
 # Oct 13 better build: nuvulabs H3 inpaint latent (plate + soft mask -> AV latent)
 https://github.com/nuvulabs/ComfyUI-MiniMaxH3-Inpaint            e8fe2339667e18ecf4ebac4d5b3b026761dbe439
 # ---- Universal routes (Oct 14 2026): MoCha + Wan2.2-Animate replace live in Kijai's wrapper. PIN a commit before baking
-# Pinned Oct 14 2026 after loading cleanly on the box CPU ComfyUI 0.39.1 (MochaEmbeds, WanVideoAnimateEmbeds, Omnichar* present).
+# Pinned Oct 14 2026 after loading cleanly on an older box CPU ComfyUI (MochaEmbeds, WanVideoAnimateEmbeds, Omnichar* present). GJ V2 installs ComfyUI 0.42.5 or newer.
 https://github.com/kijai/ComfyUI-WanVideoWrapper              088128b224242e110d3906c6750e9a3a348a659b
 https://github.com/omnichar/ComfyUI-Omnichar                  251c02e1fea44d7564d05a518dbe9fc5c9cf07e3
 # NOT installed: kijai/ComfyUI-segment-anything-2 0c35fff (its nodes break the frontend graphToPrompt: DataCloneError);
 # universal graphs take box-side SAM2.1 mask videos instead of the interactive point editor.
-# ---- Round 3 free upgrades (Oct 15 2026). All 6 load cleanly on the box CPU ComfyUI v0.39.1 (the pinned COMFY_REF) and 0.41.0.
+# ---- Round 3 free upgrades (Oct 15 2026). All 6 loaded on the box CPU ComfyUI used then. GJ V2 pins COMFY_REF at v0.42.5 or newer.
 # H3-FaceRefine (MIT): face track/crop -> H3 re-render -> stitch back. Detector: models/ultralytics/bbox/face_yolov8m.pt (start.sh link)
 https://github.com/Carasibana/ComfyUI-H3-FaceRefine            d8521d14fe0d721d80cd9417fff5a559cbc21aba
 # Impact Pack: SAMLoader for H3FaceMaskSAM (FaceRefine SAM variant); sam_vit_b in models/sams (start.sh link)

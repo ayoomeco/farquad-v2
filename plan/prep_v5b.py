@@ -1,5 +1,7 @@
 import sys,json,pathlib,os
-FH=os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad'))
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
+FH=gj_home()
 slug=sys.argv[1]; R=pathlib.Path(FH+f'/plan/run_{slug}'); R.mkdir(exist_ok=True); os.environ['DSR_RUN']=str(R)
 sys.path.insert(0,FH+'/plan'); sys.argv=[sys.argv[0]]
 from graphs_v5b import graph, LEN

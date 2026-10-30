@@ -14,8 +14,67 @@ import atexit, json, os, signal, threading, time
 from typing import Callable
 from .base import Provider, ProviderError, ApprovalError, BudgetExceeded, Approval
 
-REST = 'https://rest.runpod.io/v1'
-GQL = 'https://api.runpod.io/graphql'
+# ---- RunPod REST v2 shim (migrated Oct 29 2026: REST v1 retires Nov 15 2026; docs.runpod.io/api-reference-v2/migrate-from-v1) ----
+# Pure translation only: every recipe value (GPU, image, disk, env, ports, cmd, CUDA, RAM/vCPU mins, DCs) is passed through unchanged.
+V2 = 'https://api.runpod.io/v2'
+def v2_bodies(b):
+    """legacy v1 flat pod body -> list of v2 CreatePodRequest bodies (v2 takes ONE gpu id and ONE cloud; tried in v1 priority order)."""
+    o = {'name': b['name']}
+    for k1, k2 in (('imageName', 'image'), ('templateId', 'templateId'), ('containerDiskInGb', 'disk'), ('containerRegistryAuthId', 'registry'),
+                   ('dockerStartCmd', 'cmd'), ('dockerEntrypoint', 'entrypoint'), ('dockerArgs', 'args'), ('dataCenterIds', 'dataCenterIds')):
+        if b.get(k1) not in (None, '', []): o[k2] = b[k1]
+    if b.get('dataCenterId') and not o.get('dataCenterIds'): o['dataCenterIds'] = [b['dataCenterId']]
+    env = b.get('env') or {}
+    if isinstance(env, list): env = {e['key']: e['value'] for e in env}
+    if env: o['env'] = {k: str(v) for k, v in env.items()}
+    ports = b.get('ports')
+    if isinstance(ports, str): ports = [p.strip() for p in ports.split(',') if p.strip()]
+    if ports: o['ports'] = ports
+    if b.get('networkVolumeId'): o['mounts'] = {'network': [{'volumeId': b['networkVolumeId'], 'path': b.get('volumeMountPath') or '/workspace'}]}
+    elif int(b.get('volumeInGb') or 0) > 0: o['mounts'] = {'persistent': {'size': int(b['volumeInGb']), 'path': b.get('volumeMountPath') or '/workspace'}}
+    if str(b.get('computeType', 'GPU')).upper() == 'CPU':
+        o['cpu'] = {'id': (b.get('cpuFlavorIds') or ['cpu5c'])[0], 'vcpuCount': int(b.get('vcpuCount') or 8)}; gpus = [None]
+    else:
+        gpus = b.get('gpuTypeIds') or ([b['gpuTypeId']] if b.get('gpuTypeId') else [])
+    clouds = ['SECURE', 'COMMUNITY'] if str(b.get('cloudType', 'SECURE')).upper() == 'ALL' else [str(b.get('cloudType') or 'SECURE').upper()]
+    out = []
+    for c in clouds:
+        for g in gpus:
+            x = dict(o, cloud=c)
+            if g:
+                gc = {'id': g, 'count': int(b.get('gpuCount') or 1)}
+                if b.get('minRAMPerGPU') or b.get('minMemoryInGb'): gc['minRamPerGpu'] = int(b.get('minRAMPerGPU') or b.get('minMemoryInGb'))
+                if b.get('minVCPUPerGPU') or b.get('minVcpuCount'): gc['minVcpuCountPerGpu'] = int(b.get('minVCPUPerGPU') or b.get('minVcpuCount'))
+                if b.get('allowedCudaVersions'): gc['allowedCudaVersions'] = list(b['allowedCudaVersions'])
+                x['gpu'] = gc
+            out.append(x)
+    return out   # dropped (no v2 field): computeType, gpuTypePriority, dataCenterPriority, minDownloadMbps, supportPublicIp, volumeInGb=0
+def legacy_pod(p):
+    """v2 Pod -> the v1-style keys the rest of this code reads (id, name, desiredStatus, costPerHr, runtime.uptimeInSeconds)."""
+    if not isinstance(p, dict) or 'id' not in p: return p
+    st = str(p.get('status') or '').upper(); rt = p.get('runtime') or None
+    d = dict(p); d.update({'desiredStatus': 'RUNNING' if st in ('PROVISIONING', 'STARTING', 'RUNNING') else st, 'costPerHr': p.get('cost'),
+                           'adjustedCostPerHr': p.get('cost'), 'runtime': ({'uptimeInSeconds': rt.get('uptime'), 'ports': rt.get('ports')} if rt else None)})
+    return d
+def legacy_volume(v): d = dict(v); d.setdefault('dataCenterId', v.get('dataCenter')); return d
+def legacy_stock(cat):
+    """v2 /catalog/gpus?include=AVAILABILITY&product=POD -> {dataCenterId: {gpuTypeId: 'High'|'Medium'|'Low'}} (old GraphQL stockStatus shape)."""
+    out = {}
+    for g in (cat or {}).get('gpus') or []:
+        for dc in g.get('dataCenters') or []:
+            if dc.get('availability') and dc['availability'] != 'NONE': out.setdefault(dc['id'], {})[g['id']] = dc['availability'].title()
+    return out
+# ---- end v2 shim ----
+RUN_ID = os.environ.get('RP_RUN_ID') or __import__('uuid').uuid4().hex[:10]   # step 2b: per-run tag in pod env; dedup only touches pods with this tag
+def _same_run(pods, name, err=RuntimeError):
+    """step 2c: same-name pods of THIS run. A same-name pod with no env in the list can't be told apart -> stop loud, never touch it."""
+    same = [p for p in pods if p.get('name') == name]
+    for p in same:
+        if p.get('env') is None:
+            raise err(f"DEDUP_NO_ENV: pod {p.get('id')} named {name} has no env in list; can't tell if it's ours, not creating a possible duplicate")
+    return [p for p in same if (p.get('env') or {}).get('RP_RUN_ID') == RUN_ID]
+REST = V2   # was rest v1
+GQL = 'https://api.runpod.io/graphql'   # kept ONLY for balance(): v2 has no balance endpoint
 
 
 def _key() -> str:
@@ -26,7 +85,7 @@ def _key() -> str:
 
 
 class RunPodClient:
-    """Minimal REST v1 + GraphQL client. `transport(method, url, headers, body) -> (status, json)` is injectable
+    """Minimal REST v2 client (+ GraphQL for balance only). `transport(method, url, headers, body) -> (status, json)` is injectable
     for tests; the default uses httpx. The key lives only in this object's request headers."""
 
     def __init__(self, transport: Callable | None = None, key: str | None = None):
@@ -49,7 +108,7 @@ class RunPodClient:
     def call(self, method: str, path: str, body: dict | None = None):
         st, data = self._t(method, REST + path, self._h(), body)
         if st >= 400:
-            msg = data.get('error') or data.get('message') or data if isinstance(data, dict) else data
+            msg = (data.get('detail') or data.get('title') or data.get('error') or data.get('message') or data) if isinstance(data, dict) else data
             raise ProviderError(f'RunPod {method} {path} -> {st}: {str(msg)[:300]}')
         return data
 
@@ -66,24 +125,17 @@ class RunPodClient:
 
     def gpu_stock(self) -> dict[str, dict[str, str]]:
         """{dataCenterId: {gpuTypeId: stockStatus}} (best effort; same data runpodctl datacenter list shows)."""
-        d = self.gql('query { dataCenters { id name location gpuAvailability { gpuTypeId stockStatus } } }')
-        out = {}
-        for dc in (d or {}).get('dataCenters') or []:
-            out[dc['id']] = {g['gpuTypeId']: g.get('stockStatus') for g in dc.get('gpuAvailability') or []}
-        return out
+        return legacy_stock(self.call('GET', '/catalog/gpus?include=AVAILABILITY&product=POD'))   # v2 catalog
 
     def get_pod(self, pod_id: str) -> dict:
-        return self.call('GET', f'/pods/{pod_id}')
+        return legacy_pod(self.call('GET', f'/pods/{pod_id}'))
 
     def list_volumes(self) -> list:
-        return self.call('GET', '/networkvolumes')
+        return [legacy_volume(v) for v in (self.call('GET', '/network-volumes').get('networkVolumes') or [])]
 
     # --- writes (billable / destructive): only reachable through RunPodPodProvider gates ---
     def create_pod(self, body: dict) -> dict:
-        cu = body.get('allowedCudaVersions') or []
-        if any(v not in ('12.8', '12.9', '13.0') for v in cu):   # Oct 20: REST enum stops at 13.0 -> GraphQL deploy for 13.x hosts
-            return self._create_pod_gql(body)
-        return self.call('POST', '/pods', body)
+        return self._create_pod_v2(body)   # v2 takes any CUDA major.minor
 
     def _create_pod_gql(self, body: dict) -> dict:
         import base64 as _b
@@ -115,14 +167,42 @@ class RunPodClient:
                 last = e
         raise ProviderError(f'RunPod GraphQL deploy: There are no instances currently available ({str(last)[:200]})')
 
+    def _create_pod_v2(self, body: dict) -> dict:
+        """v1 body -> v2 CreatePodRequest; one single-GPU create per gpuTypeId in v1 order. Returns v1-shaped pod."""
+        last = None
+        for i, vb in enumerate([dict(vb, env={**(vb.get('env') or {}), 'RP_RUN_ID': RUN_ID}) for vb in v2_bodies(body)]):
+            if i:   # dedup (Oct 29): a timed-out create may have landed; reuse it instead of making a 2nd pod
+                hit = self._dedup(body['name'], last)
+                if hit: return hit
+            try:
+                return legacy_pod(self.call('POST', '/pods', vb))
+            except Exception as e:   # ProviderError or a transport timeout
+                last = e
+        hit = self._dedup(body['name'], last)
+        if hit: return hit
+        raise ProviderError(f'RunPod v2 create failed for every GPU type ({str(last)[:200]})')
+
+    def _dedup(self, name: str, last) -> dict | None:
+        """List pods with this exact name. Reuse the first live one, terminate extras and stopped leftovers. Can't list -> stop (never risk a duplicate)."""
+        try:
+            allp = self.call('GET', '/pods?limit=1000').get('pods') or []
+        except Exception as e:
+            raise ProviderError(f'RunPod v2 dedup: could not list pods before retry, not creating a possible duplicate ({str(e)[:150]}; last create error: {str(last)[:150]})')
+        ps = _same_run(allp, name, ProviderError)   # DEDUP_NO_ENV raises here, outside the list-failure handler
+        live = [p for p in ps if str(p.get('status', '')).upper() in ('PROVISIONING', 'STARTING', 'RUNNING')]
+        for p in ps:
+            if not live or p is not live[0]:
+                self.call('DELETE', f"/pods/{p['id']}")
+        return legacy_pod(live[0]) if live else None
+
     def terminate_pod(self, pod_id: str) -> dict:
         return self.call('DELETE', f'/pods/{pod_id}')
 
     def create_volume(self, name: str, size_gb: int, dc: str) -> dict:
-        return self.call('POST', '/networkvolumes', {'name': name, 'size': int(size_gb), 'dataCenterId': dc})
+        return legacy_volume(self.call('POST', '/network-volumes', {'name': name, 'size': int(size_gb), 'dataCenter': dc}))
 
     def delete_volume(self, vol_id: str) -> dict:
-        return self.call('DELETE', f'/networkvolumes/{vol_id}')
+        return self.call('DELETE', f'/network-volumes/{vol_id}')
 
 
 class Watchdog:

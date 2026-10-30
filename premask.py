@@ -1,8 +1,10 @@
-import sys,glob,cv2,numpy as np,json,os
+import sys,glob,cv2,numpy as np,json,os,pathlib
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
 from ultralytics import YOLO
 slug=sys.argv[1]; W,H=1152,640
 CAST={'lalaland':['Sebastian','Mia'],'pulp':['Vincent','Mia'],'thisisamerica':['Lead'],'walken':['Lead'],'singleladies':['Lead (center)']}[slug]
-v=glob.glob(f'{slug}/*_native.mp4')[0]; det=YOLO(os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad'))+'/models/yolo11l-seg.pt')
+v=glob.glob(f'{slug}/*_native.mp4')[0]; det=YOLO(gj_home()+'/models/yolo11l-seg.pt')
 c=cv2.VideoCapture(v); M=[]; stat=[]; thumbs=[]; i=0
 def score(f,b,mk):  # higher = 'female/second' role
     x0,y0,x1,y1=map(int,b); lab=cv2.cvtColor(f,cv2.COLOR_BGR2LAB); sel=mk>0

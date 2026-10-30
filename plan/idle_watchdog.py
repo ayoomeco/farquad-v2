@@ -4,7 +4,9 @@ Idle >= IDLE_MIN -> terminate + verify. Also enforces the PER-JOB cap from <run>
 spend since <run>/B0.txt >= 95% of CAP -> STOP + terminate. Never prints keys. Stop with plan/WATCHDOG_OFF.
 DRY=1 + DRY_STATE=<json> for tests."""
 import os, sys, json, time, pathlib
-V=pathlib.Path(os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad')))/'plan'; IDLE=float(os.environ.get('IDLE_MIN','15'))*60; DRY=os.environ.get('DRY')=='1'
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
+V=pathlib.Path(gj_home())/'plan'; IDLE=float(os.environ.get('IDLE_MIN','15'))*60; DRY=os.environ.get('DRY')=='1'
 L=V/'watchdog.log'
 def log(s): open(L,'a').write(time.strftime('%T ')+s+'\n'); print(s,flush=True)
 def active_runs(now):

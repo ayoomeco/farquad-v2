@@ -713,7 +713,7 @@ def boot_cmd(dead_man_s: int) -> list[str]:
         f'date +%s > /tmp/jutsu_t0; echo $(( $(date +%s) + {int(dead_man_s)} )) > /tmp/jutsu_deadline; '
         '( while [ "$(date +%s)" -lt "$(cat /tmp/jutsu_deadline 2>/dev/null || echo 0)" ]; do sleep 15; done; '
         'echo "[boot] dead-man switch"; runpodctl remove pod "$RUNPOD_POD_ID" || '
-        'curl -s -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" ) & '
+        'curl -s -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://api.runpod.io/v2/pods/$RUNPOD_POD_ID" ) & '
         'mkdir -p /opt/jutsu-src && echo "$JUTSU_BOOT_B64" | base64 -d | tar xz -C /opt/jutsu-src && cd /opt/jutsu-src && '
         'exec bash worker/phase1_boot.sh')
     return ['bash', '-c', script]

@@ -1,4 +1,7 @@
-import json,sys,os,numpy as np,cv2
+import json,sys,os,numpy as np,cv2,pathlib
+sys.path.insert(0, str(next(p/'lib' for p in pathlib.Path(__file__).resolve().parents if (p/'lib'/'home.py').is_file())))
+from home import gj_home
+_H=gj_home()
 sys.path.insert(0,'.'); import qc_v5b3 as Q
 sys.argv=['x']; os.environ['DSR_RUN']='/tmp'
 W,H=1152,640
@@ -14,7 +17,7 @@ def frames(p,fit=False):
         o.append(f)
 slug=os.environ.get("SLUG","walken")
 acc=json.load(open(f"run_{slug}/accepted.json")); k=int(os.environ.get("K","0")); a=acc[f"{slug}:{k}"]
-import glob; src=(glob.glob(os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad'))+f"/{slug}/{slug}_wu_lb.mp4") or [os.environ.get('FARQUAD_HOME',os.path.expanduser('~/farquad'))+f"/{slug}/{slug}_wu.mp4"])[0]; S=frames(src,fit=True)[k*119:k*119+141]; O=frames(a["out"])[:141]
+import glob; src=(glob.glob(_H+f"/{slug}/{slug}_wu_lb.mp4") or [_H+f"/{slug}/{slug}_wu.mp4"])[0]; S=frames(src,fit=True)[k*119:k*119+141]; O=frames(a["out"])[:141]
 print('stored V1 checks',{x:a[x] for x in ('orig','leak','bg_dE')})
 r=Q.popin(O,S); print('ACCEPTED piece  ', r)
 # self-test: source vs itself must pass with ~0

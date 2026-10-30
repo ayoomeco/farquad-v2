@@ -1,17 +1,17 @@
 {
  "schema": "genie-jutsu/models-manifest@1",
- "generated": "2026-10-07",
- "note": "target paths are relative to the model root (network volume: /workspace on pods, /runpod-volume on serverless). Nothing here is baked into the worker image.",
+ "generated": "2026-10-26",
+ "note": "GJ V2 default bundle gjfast. target paths are relative to the model root. Nothing here is baked into the worker image. No likeness LoRA in the default bundle.",
  "groups": {
   "gjfast": [
    "gjfast"
   ]
  },
  "bundle_bytes": {
-  "gjfast": 41447520855
+  "gjfast": 42468753719
  },
  "group_bytes": {
-  "gjfast": 41447520855
+  "gjfast": 42468753719
  },
  "models": [
   {
@@ -100,47 +100,6 @@
    "note": "native stereo audio"
   },
   {
-   "id": "akatz_charswap",
-   "repo": "akatz-ai/MiniMax-H3-Character-Swap-LoRA",
-   "file": "h3_character_swap_pro4500_1000.safetensors",
-   "size_bytes": 155110320,
-   "sha256": "4b2a3f420ae804c0aa3422761ff84dbd1bf52eef6900ffab6d2e66df63cb4e79",
-   "target": "models/loras/h3_character_swap_pro4500_1000.safetensors",
-   "url": "https://huggingface.co/akatz-ai/MiniMax-H3-Character-Swap-LoRA/resolve/main/h3_character_swap_pro4500_1000.safetensors",
-   "bundles": [
-    "bench_v2",
-    "better_lite",
-    "gjfast",
-    "h3_swaplora",
-    "kenny",
-    "r3combo",
-    "round2",
-    "universal",
-    "gjmesh"
-   ],
-   "note": "Oct 13 better-build rung"
-  },
-  {
-   "id": "turbo_v4",
-   "repo": "larryvrh/MiniMax-H3-Turbo-Lora",
-   "file": "minimax_h3_turbo_v4_step600_ema.safetensors",
-   "size_bytes": 779849816,
-   "sha256": "5f3a626cd72c93a8b9318d6760c510bc5092d2ab13aaba1f932c5bab07a416d3",
-   "target": "models/loras/minimax_h3_turbo_v4_step600_ema.safetensors",
-   "url": "https://huggingface.co/larryvrh/MiniMax-H3-Turbo-Lora/resolve/main/minimax_h3_turbo_v4_step600_ema.safetensors",
-   "bundles": [
-    "bench_v2",
-    "better_lite",
-    "drake5",
-    "gjfast",
-    "h3swap",
-    "h3swap_min",
-    "h3mesh",
-    "gjmesh"
-   ],
-   "note": "Oct 13 better-build rung"
-  },
-  {
    "id": "fal_realism_people",
    "repo": "fal/MiniMax-H3-Realism-People-LoRA",
    "file": "h3-realism-people-t2v-i2v-r2v.safetensors",
@@ -211,6 +170,21 @@
     "gjfast"
    ],
    "note": "bench v2 slim"
+  },
+  {
+   "id": "lightx2v_turbo8_v11",
+   "repo": "lightx2v/Minimax-h3-Turbo",
+   "file": "minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+   "size_bytes": 1956193000,
+   "sha256": "e56863a7524e0300729cbb7b64cc8b548d90698c1abbf7d83898b0122fbe1e81",
+   "target": "models/loras/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+   "url": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+   "bundles": [
+    "gjfast",
+    "h3swap",
+    "h3swap_min"
+   ],
+   "note": "GJ V2 default speed LoRA. Exactly one speed LoRA, strength 0.8. Do not stack a second speed LoRA."
   }
  ]
 }
