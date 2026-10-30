@@ -65,6 +65,7 @@ def legacy_stock(cat):
             if dc.get('availability') and dc['availability'] != 'NONE': out.setdefault(dc['id'], {})[g['id']] = dc['availability'].title()
     return out
 # ---- end v2 shim ----
+RUN_ID = os.environ.get('RP_RUN_ID') or __import__('uuid').uuid4().hex[:10]   # step 2b: per-run tag in pod env; dedup only touches pods with this tag
 REST = V2   # was rest v1
 GQL = 'https://api.runpod.io/graphql'   # kept ONLY for balance(): v2 has no balance endpoint
 
@@ -162,7 +163,7 @@ class RunPodClient:
     def _create_pod_v2(self, body: dict) -> dict:
         """v1 body -> v2 CreatePodRequest; one single-GPU create per gpuTypeId in v1 order. Returns v1-shaped pod."""
         last = None
-        for i, vb in enumerate(v2_bodies(body)):
+        for i, vb in enumerate([dict(vb, env={**(vb.get('env') or {}), 'RP_RUN_ID': RUN_ID}) for vb in v2_bodies(body)]):
             if i:   # dedup (Oct 29): a timed-out create may have landed; reuse it instead of making a 2nd pod
                 hit = self._dedup(body['name'], last)
                 if hit: return hit
@@ -177,7 +178,7 @@ class RunPodClient:
     def _dedup(self, name: str, last) -> dict | None:
         """List pods with this exact name. Reuse the first live one, terminate extras and stopped leftovers. Can't list -> stop (never risk a duplicate)."""
         try:
-            ps = [p for p in (self.call('GET', '/pods?limit=1000').get('pods') or []) if p.get('name') == name]
+            ps = [p for p in (self.call('GET', '/pods?limit=1000').get('pods') or []) if p.get('name') == name and (p.get('env') or {}).get('RP_RUN_ID') == RUN_ID]   # same run only
         except Exception as e:
             raise ProviderError(f'RunPod v2 dedup: could not list pods before retry, not creating a possible duplicate ({str(e)[:150]}; last create error: {str(last)[:150]})')
         live = [p for p in ps if str(p.get('status', '')).upper() in ('PROVISIONING', 'STARTING', 'RUNNING')]
