@@ -1,17 +1,73 @@
 """RunPod helpers for Fire Marshal Bill (from the H3-check controller (fastboot image by default; LEGACY=1 for the old install-at-boot path) (my pods only, name prefix 'k2h3-'). launch N | run | stop. Never prints keys. Combined hard cap with Modal ledger."""
 import os, sys, json, time, requests, pathlib
 import fmbcfg as CFG
+# ---- RunPod REST v2 shim (migrated Oct 29 2026: REST v1 retires Nov 15 2026; docs.runpod.io/api-reference-v2/migrate-from-v1) ----
+# Pure translation only: every recipe value (GPU, image, disk, env, ports, cmd, CUDA, RAM/vCPU mins, DCs) is passed through unchanged.
+V2 = 'https://api.runpod.io/v2'
+def v2_bodies(b):
+    """legacy v1 flat pod body -> list of v2 CreatePodRequest bodies (v2 takes ONE gpu id and ONE cloud; tried in v1 priority order)."""
+    o = {'name': b['name']}
+    for k1, k2 in (('imageName', 'image'), ('templateId', 'templateId'), ('containerDiskInGb', 'disk'), ('containerRegistryAuthId', 'registry'),
+                   ('dockerStartCmd', 'cmd'), ('dockerEntrypoint', 'entrypoint'), ('dockerArgs', 'args'), ('dataCenterIds', 'dataCenterIds')):
+        if b.get(k1) not in (None, '', []): o[k2] = b[k1]
+    if b.get('dataCenterId') and not o.get('dataCenterIds'): o['dataCenterIds'] = [b['dataCenterId']]
+    env = b.get('env') or {}
+    if isinstance(env, list): env = {e['key']: e['value'] for e in env}
+    if env: o['env'] = {k: str(v) for k, v in env.items()}
+    ports = b.get('ports')
+    if isinstance(ports, str): ports = [p.strip() for p in ports.split(',') if p.strip()]
+    if ports: o['ports'] = ports
+    if b.get('networkVolumeId'): o['mounts'] = {'network': [{'volumeId': b['networkVolumeId'], 'path': b.get('volumeMountPath') or '/workspace'}]}
+    elif int(b.get('volumeInGb') or 0) > 0: o['mounts'] = {'persistent': {'size': int(b['volumeInGb']), 'path': b.get('volumeMountPath') or '/workspace'}}
+    if str(b.get('computeType', 'GPU')).upper() == 'CPU':
+        o['cpu'] = {'id': (b.get('cpuFlavorIds') or ['cpu5c'])[0], 'vcpuCount': int(b.get('vcpuCount') or 8)}; gpus = [None]
+    else:
+        gpus = b.get('gpuTypeIds') or ([b['gpuTypeId']] if b.get('gpuTypeId') else [])
+    clouds = ['SECURE', 'COMMUNITY'] if str(b.get('cloudType', 'SECURE')).upper() == 'ALL' else [str(b.get('cloudType') or 'SECURE').upper()]
+    out = []
+    for c in clouds:
+        for g in gpus:
+            x = dict(o, cloud=c)
+            if g:
+                gc = {'id': g, 'count': int(b.get('gpuCount') or 1)}
+                if b.get('minRAMPerGPU') or b.get('minMemoryInGb'): gc['minRamPerGpu'] = int(b.get('minRAMPerGPU') or b.get('minMemoryInGb'))
+                if b.get('minVCPUPerGPU') or b.get('minVcpuCount'): gc['minVcpuCountPerGpu'] = int(b.get('minVCPUPerGPU') or b.get('minVcpuCount'))
+                if b.get('allowedCudaVersions'): gc['allowedCudaVersions'] = list(b['allowedCudaVersions'])
+                x['gpu'] = gc
+            out.append(x)
+    return out   # dropped (no v2 field): computeType, gpuTypePriority, dataCenterPriority, minDownloadMbps, supportPublicIp, volumeInGb=0
+def legacy_pod(p):
+    """v2 Pod -> the v1-style keys the rest of this code reads (id, name, desiredStatus, costPerHr, runtime.uptimeInSeconds)."""
+    if not isinstance(p, dict) or 'id' not in p: return p
+    st = str(p.get('status') or '').upper(); rt = p.get('runtime') or None
+    d = dict(p); d.update({'desiredStatus': 'RUNNING' if st in ('PROVISIONING', 'STARTING', 'RUNNING') else st, 'costPerHr': p.get('cost'),
+                           'adjustedCostPerHr': p.get('cost'), 'runtime': ({'uptimeInSeconds': rt.get('uptime'), 'ports': rt.get('ports')} if rt else None)})
+    return d
+def legacy_volume(v): d = dict(v); d.setdefault('dataCenterId', v.get('dataCenter')); return d
+def legacy_stock(cat):
+    """v2 /catalog/gpus?include=AVAILABILITY&product=POD -> {dataCenterId: {gpuTypeId: 'High'|'Medium'|'Low'}} (old GraphQL stockStatus shape)."""
+    out = {}
+    for g in (cat or {}).get('gpus') or []:
+        for dc in g.get('dataCenters') or []:
+            if dc.get('availability') and dc['availability'] != 'NONE': out.setdefault(dc['id'], {})[g['id']] = dc['availability'].title()
+    return out
+# ---- end v2 shim ----
 D = CFG.DATA; R = D / 'runpod'; R.mkdir(parents=True, exist_ok=True); KEY = os.environ.get('RUNPOD_API_KEY', ''); GQL = 'https://api.runpod.io/graphql'   # key read by name; only paid calls need it
 def q(query, var=None):
     r = requests.post(GQL, json={'query': query, 'variables': var or {}}, headers={'Authorization': f'Bearer {KEY}'}, timeout=60); r.raise_for_status(); d = r.json()
     if d.get('errors'): raise RuntimeError(json.dumps(d['errors'])[:500])
     return d['data']
-def mypods(): return [p for p in q('query{myself{pods{id name desiredStatus costPerHr runtime{uptimeInSeconds}}}}')['myself']['pods'] if p['name'].startswith('k2h3-')]
+def _v2(m, path, body=None):
+    r = requests.request(m, V2 + path, json=body, headers={'Authorization': f'Bearer {KEY}'}, timeout=90)
+    if r.status_code >= 300: raise RuntimeError(f'{r.status_code} {r.text[:300]}')
+    return r.json() if r.content else {}
+def mypods(): return [legacy_pod(p) for p in _v2('GET', '/pods?limit=1000').get('pods', []) if p['name'].startswith('k2h3-')]   # v2 (was GraphQL myself.pods)
+def v2_terminate(pid): _v2('DELETE', f'/pods/{pid}')
 def log(m): open(R / 'rp.log', 'a').write(f"{time.strftime('%T')} {m}\n"); print(m, flush=True)
 # ---- fastboot (Oct 27 2026): prebuilt image, no installs at boot. LEGACY=1 -> old runpod/pytorch + SETUP script path.
 IMAGE = os.environ.get('GJ_IMAGE', 'ghcr.io/ayoomeco/genie-jutsu-worker:fastboot-comfy-0.42.5-r2')   # r2 = memory-lean h3_exact_lora; rollback GJ_IMAGE=...:fastboot-comfy-0.42.5 (or LEGACY=1)
 REG_AUTH = os.environ.get('GJ_REGISTRY_AUTH_ID', '')   # only if the image is private: your RunPod registry-auth id
-GPU = os.environ.get('GJ_GPU', 'NVIDIA RTX PRO 6000 Blackwell Server Edition'); REST = 'https://rest.runpod.io/v1'
+GPU = os.environ.get('GJ_GPU', 'NVIDIA RTX PRO 6000 Blackwell Server Edition'); REST = V2   # was https://rest.runpod.io/v1
 REPLACE_AFTER = int(os.environ.get('REPLACE_AFTER_S', 360)); MAX_REPLACE = int(os.environ.get('MAX_REPLACE', 3))
 # ---- manifest overlay + disk sizing (Oct 28 2026). The image bakes /opt/gj/models.manifest.json at build time, so a set added to
 # fast_gpu_start/repo/fastboot/models.manifest.json after the build is NOT on the pod. For such sets the launcher sends just those set
@@ -60,10 +116,25 @@ def pod_body(name, sets):
     pin = os.environ.get('GJ_CUDA_PIN', '').strip()
     if pin and os.environ.get('CUDA_ANY') != '1': b['allowedCudaVersions'] = [v.strip() for v in pin.split(',') if v.strip()]
     return apply_overlay(b, sets)   # Oct 28: overlay only for sets not baked into the image; disk sized from the sets (min 150)
+def _dedup(name, last):
+    """Oct 29 dedup: list pods with this exact name; reuse the first live one, terminate extras/stopped leftovers. Can't list -> raise (never risk a duplicate)."""
+    try: ps = [p for p in _v2('GET', '/pods?limit=1000').get('pods', []) if p.get('name') == name]
+    except Exception as e: raise RuntimeError(f'dedup: could not list pods before retry, not creating a possible duplicate ({str(e)[:150]}; last create error: {str(last)[:150]})')
+    live = [p for p in ps if str(p.get('status', '')).upper() in ('PROVISIONING', 'STARTING', 'RUNNING')]
+    for p in ps:
+        if not live or p is not live[0]: _v2('DELETE', f"/pods/{p['id']}"); log(f"dedup: terminated extra pod {p['id']} {name}")
+    if live: p = legacy_pod(live[0]); log(f"dedup: reusing pod {p['id']} {name} (an earlier create landed)"); return p['id'], p.get('costPerHr')
 def launch_one(name, sets):
-    r = requests.post(REST + '/pods', json=pod_body(name, sets), headers={'Authorization': f'Bearer {KEY}'}, timeout=90)
-    if r.status_code >= 300: raise RuntimeError(f'{r.status_code} {r.text[:300]}')
-    p = r.json(); return p['id'], p.get('costPerHr')
+    last = None
+    for i, vb in enumerate(v2_bodies(pod_body(name, sets))):   # v2: one GPU id per create, tried in order
+        if i:
+            hit = _dedup(name, last)
+            if hit: return hit
+        try: p = legacy_pod(_v2('POST', '/pods', vb)); return p['id'], p.get('costPerHr')
+        except Exception as e: last = e   # RuntimeError (HTTP) or requests timeout
+    hit = _dedup(name, last)
+    if hit: return hit
+    raise last
 def _pods_meta():
     f = R / 'pods_meta.json'; return json.load(open(f)) if f.exists() else {}
 def _save_meta(m): json.dump(m, open(R / 'pods_meta.json', 'w'), indent=1)
@@ -91,7 +162,7 @@ def spend():
     now = time.time(); ps = mypods(); rate = sum(float(p.get('costPerHr') or 0) for p in ps if p['desiredStatus'] == 'RUNNING')
     led['integ'] += rate * (now - led['last']) / 3600; led['last'] = now; led['rate'] = rate; led['n'] = len(ps); json.dump(led, open(L, 'w')); return led['integ'], ps
 def stop():
-    for p in mypods(): q('mutation($i:PodTerminateInput!){podTerminate(input:$i)}', {'i': {'podId': p['id']}}); log(f"terminated {p['id']}")
+    for p in mypods(): v2_terminate(p['id']); log(f"terminated {p['id']}")
 if __name__ == '__main__':
     a = sys.argv[1]
     if a == 'launch': launch(int(sys.argv[2]))
@@ -107,7 +178,7 @@ def boot_failed(pid):
     try: return requests.get(url(pid) + '/view', params={'filename': 'BOOT_FAILED.txt', 'type': 'output'}, timeout=20).status_code == 200
     except Exception: return False
 def terminate(pid, why):
-    try: q('mutation($i:PodTerminateInput!){podTerminate(input:$i)}', {'i': {'podId': pid}}); log(f"terminated {pid} ({why})")
+    try: v2_terminate(pid); log(f"terminated {pid} ({why})")
     except Exception as e: log(f'terminate {pid} failed {str(e)[:200]}')
 def save_timings(pid):
     (D / 'logs').mkdir(exist_ok=True)
@@ -186,4 +257,4 @@ if __name__ == '__main__' and sys.argv[1] == 'plan': print(json.dumps(pod_body('
 if __name__ == '__main__' and sys.argv[1] == 'ready': print({p['id']: ready(p['id']) for p in mypods()})
 if __name__ == '__main__' and sys.argv[1] == 'stopone':
     for i in sys.argv[2:]:
-        if any(p['id'] == i for p in mypods()): q('mutation($i:PodTerminateInput!){podTerminate(input:$i)}', {'i': {'podId': i}}); log(f"terminated {i}")
+        if any(p['id'] == i for p in mypods()): v2_terminate(i); log(f"terminated {i}")

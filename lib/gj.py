@@ -39,7 +39,7 @@ class Job:
             time.sleep(20)
         s.log(f'launch {role}: no {R.GPU} SECURE stock after {max_wait_s}s'); return None
     def terminate(s, pid, why):
-        try: R.q('mutation($i:PodTerminateInput!){podTerminate(input:$i)}', {'i': {'podId': pid}})
+        try: R.v2_terminate(pid)   # v2 DELETE /v2/pods/{id} (was GraphQL podTerminate)
         except Exception as e: s.log(f'terminate {pid} err {str(e)[:120]}')
         with s.lock:
             d = s.led()

@@ -15,7 +15,7 @@ self_remove() {   # terminate (not stop) this pod so nothing keeps billing
   echo "[boot] self-remove: $1"; mark "self_remove"
   if command -v runpodctl >/dev/null && [ -n "${RUNPOD_POD_ID:-}" ]; then runpodctl remove pod "$RUNPOD_POD_ID" && return; fi
   if [ -n "${RUNPOD_API_KEY:-}" ] && [ -n "${RUNPOD_POD_ID:-}" ]; then
-    curl -s -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" && return; fi
+    curl -s -X DELETE -H "Authorization: Bearer $RUNPOD_API_KEY" "https://api.runpod.io/v2/pods/$RUNPOD_POD_ID" && return; fi
   echo "[boot] WARN could not self-remove; launcher must terminate this pod"
 }
 mark container_start
