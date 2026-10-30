@@ -21,7 +21,7 @@ echo "[start] models=$MODEL_ROOT/models jutsu=$JUTSU"
 if [ -n "${JUTSU_MAX_SECONDS:-}" ] && [ -n "${RUNPOD_POD_ID:-}" ]; then
   ( sleep "$JUTSU_MAX_SECONDS"; echo "[start] dead-man switch: terminating pod $RUNPOD_POD_ID";
     (command -v runpodctl >/dev/null && runpodctl remove pod "$RUNPOD_POD_ID") || \
-    curl -s -X DELETE -H "Authorization: Bearer ${RUNPOD_API_KEY:-}" "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" ) &
+    curl -s -X DELETE -H "Authorization: Bearer ${RUNPOD_API_KEY:-}" "https://api.runpod.io/v2/pods/$RUNPOD_POD_ID" ) &
 fi
 # Box-uploaded files (character LoRAs) arrive in <=90 MB parts via ComfyUI /upload/image; reassemble in the background
 HERE=$(cd "$(dirname "$0")" && pwd)
