@@ -116,9 +116,10 @@ def pod_body(name, sets):
     pin = os.environ.get('GJ_CUDA_PIN', '').strip()
     if pin and os.environ.get('CUDA_ANY') != '1': b['allowedCudaVersions'] = [v.strip() for v in pin.split(',') if v.strip()]
     return apply_overlay(b, sets)   # Oct 28: overlay only for sets not baked into the image; disk sized from the sets (min 150)
+RUN_ID = os.environ.get('RP_RUN_ID') or __import__('uuid').uuid4().hex[:10]   # step 2b: per-run tag in pod env; dedup only touches pods with this tag
 def _dedup(name, last):
     """Oct 29 dedup: list pods with this exact name; reuse the first live one, terminate extras/stopped leftovers. Can't list -> raise (never risk a duplicate)."""
-    try: ps = [p for p in _v2('GET', '/pods?limit=1000').get('pods', []) if p.get('name') == name]
+    try: ps = [p for p in _v2('GET', '/pods?limit=1000').get('pods', []) if p.get('name') == name and (p.get('env') or {}).get('RP_RUN_ID') == RUN_ID]   # same run only
     except Exception as e: raise RuntimeError(f'dedup: could not list pods before retry, not creating a possible duplicate ({str(e)[:150]}; last create error: {str(last)[:150]})')
     live = [p for p in ps if str(p.get('status', '')).upper() in ('PROVISIONING', 'STARTING', 'RUNNING')]
     for p in ps:
@@ -126,7 +127,7 @@ def _dedup(name, last):
     if live: p = legacy_pod(live[0]); log(f"dedup: reusing pod {p['id']} {name} (an earlier create landed)"); return p['id'], p.get('costPerHr')
 def launch_one(name, sets):
     last = None
-    for i, vb in enumerate(v2_bodies(pod_body(name, sets))):   # v2: one GPU id per create, tried in order
+    for i, vb in enumerate([dict(vb, env={**(vb.get('env') or {}), 'RP_RUN_ID': RUN_ID}) for vb in v2_bodies(pod_body(name, sets))]):   # v2: one GPU id per create, tried in order
         if i:
             hit = _dedup(name, last)
             if hit: return hit
