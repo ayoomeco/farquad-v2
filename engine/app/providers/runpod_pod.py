@@ -66,6 +66,13 @@ def legacy_stock(cat):
     return out
 # ---- end v2 shim ----
 RUN_ID = os.environ.get('RP_RUN_ID') or __import__('uuid').uuid4().hex[:10]   # step 2b: per-run tag in pod env; dedup only touches pods with this tag
+def _same_run(pods, name, err=RuntimeError):
+    """step 2c: same-name pods of THIS run. A same-name pod with no env in the list can't be told apart -> stop loud, never touch it."""
+    same = [p for p in pods if p.get('name') == name]
+    for p in same:
+        if p.get('env') is None:
+            raise err(f"DEDUP_NO_ENV: pod {p.get('id')} named {name} has no env in list; can't tell if it's ours, not creating a possible duplicate")
+    return [p for p in same if (p.get('env') or {}).get('RP_RUN_ID') == RUN_ID]
 REST = V2   # was rest v1
 GQL = 'https://api.runpod.io/graphql'   # kept ONLY for balance(): v2 has no balance endpoint
 
@@ -178,9 +185,10 @@ class RunPodClient:
     def _dedup(self, name: str, last) -> dict | None:
         """List pods with this exact name. Reuse the first live one, terminate extras and stopped leftovers. Can't list -> stop (never risk a duplicate)."""
         try:
-            ps = [p for p in (self.call('GET', '/pods?limit=1000').get('pods') or []) if p.get('name') == name and (p.get('env') or {}).get('RP_RUN_ID') == RUN_ID]   # same run only
+            allp = self.call('GET', '/pods?limit=1000').get('pods') or []
         except Exception as e:
             raise ProviderError(f'RunPod v2 dedup: could not list pods before retry, not creating a possible duplicate ({str(e)[:150]}; last create error: {str(last)[:150]})')
+        ps = _same_run(allp, name, ProviderError)   # DEDUP_NO_ENV raises here, outside the list-failure handler
         live = [p for p in ps if str(p.get('status', '')).upper() in ('PROVISIONING', 'STARTING', 'RUNNING')]
         for p in ps:
             if not live or p is not live[0]:
